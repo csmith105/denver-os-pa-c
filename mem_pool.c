@@ -6,7 +6,8 @@
 #include <assert.h>
 #include <stdio.h>
 
-#include "mem_pool.h"
+#include "mem_pool.h"  reas
+
 
 /* Constants */
 static const float      MEM_FILL_FACTOR                 = 0.75;
@@ -116,44 +117,16 @@ alloc_status mem_free() {
     for(unsigned int i = 0; i < pool_store_capacity; ++i) {
         
         // For each pool in use
-        
-        // Free each gap
-        for(unsigned int j = 0; j < pool_store[i]->used_gaps; ++j) {
-            
-            free(pool_store[i]->gap_ix[j]);
-            
-        }
-        
-        // Free the actual array of gap pointers
-        free(pool_store[i]->gap_ix);
-        
-        // Free each node
-            
-            // Set peter to the first node in the heap
-            node_pt pete = pool_store[i]->node_heap;
-            
-            // Traverse the linked list to the end, clearing all the nodes before us
-            while(pete->next != NULL) {
-                
-                pete = pete->next;
-                
-                free(pete->prev);
-                
-            }
-            
-            // We may have to kill pete...
-            free(pete);
-        
-        // Finally we free the pool and make sure to set that pool_store pointer to NULL
-        free(pool_store[i]);
-        pool_store = NULL;
+        mem_pool_close((pool_pt) pool_store[i]);
         
     }
     
-    // And last but not least, we free the pool_store
+    // Free the pool_store
     free(pool_store);
+    
+    pool_store = NULL;
 
-    return ALLOC_FAIL;
+    return ALLOC_OK;
     
 }
 
@@ -171,25 +144,10 @@ pool_pt mem_pool_open(size_t size, alloc_policy policy) {
     if(pool_store_capacity >= pool_store_size * MEM_POOL_STORE_FILL_FACTOR) {
         
         // We need to resize
-        
-        // We'll use a temporary pointer, in the event that the realloc call fails,
-        // we'd rather deny the mem_pool_open call rather than obliterate the entire pool_store
-        
-        pool_mgr_pt * bob = (pool_mgr_pt *) realloc(pool_store, pool_store_size * MEM_POOL_STORE_EXPAND_FACTOR * sizeof(pool_mgr_t));
-
-        // Did the realloc call succeed?
-        if(bob == NULL) {
+        if (_mem_resize_pool_store() != ALLOC_OK) {
             
-            // Return NULL on failure
+            // Return NULL on failure to resize
             return NULL;
-            
-        } else {
-            
-            // Assign bob to the pool_store
-            pool_store = bob;
-            
-            // Modify the pool_store_size to match the new size
-            pool_store_size *= MEM_POOL_STORE_EXPAND_FACTOR;
             
         }
         
@@ -201,6 +159,17 @@ pool_pt mem_pool_open(size_t size, alloc_policy policy) {
     // Grab a pointer to the actual pool manager we're setting up
     pool_mgr_pt ourPoolMgr = pool_store[pool_store_capacity - 1];
     
+    // Create the pool
+    ourPoolMgr = calloc(1, sizeof(pool_mgr_t));
+    
+    // Did the calloc call succeed?
+    if(ourPoolMgr == NULL) {
+        
+        // It didn't :(
+        return NULL;
+        
+    }
+    
     // Setup the policy
     ourPoolMgr->pool.policy = policy;
     
@@ -210,7 +179,7 @@ pool_pt mem_pool_open(size_t size, alloc_policy policy) {
     // Did the malloc call succeed?
     if(ourPoolMgr->pool.mem == NULL) {
         
-        // Return NULL on failure
+        // It didn't :(
         return NULL;
         
     }
@@ -218,41 +187,115 @@ pool_pt mem_pool_open(size_t size, alloc_policy policy) {
     // Setup the size
     ourPoolMgr->pool.alloc_size = size;
     
-    // NULL everything else, because this memory may have been obtained with a realloc call
-    // meaning we'll have garbage everywhere, which is not good
-    
-    ourPoolMgr->pool.num_allocs = 0;
-    ourPoolMgr->pool.num_gaps = 0;
-    ourPoolMgr->pool.total_size = 0;
-    ourPoolMgr->gap_ix = NULL;
-    ourPoolMgr->node_heap = NULL;
-    ourPoolMgr->total_nodes = 0;
-    ourPoolMgr->used_nodes = 0;
+    ourPoolMgr->gap_ix = calloc(MEM_GAP_IX_INIT_CAPACITY, sizeof(gap_t));
 
-    // Return dat pointer (casted to a pool_pt) to stop XCode from bitching
+    // Return dat pointer (casted to a pool_pt) to stop the compiler from bitching
     return (pool_pt) ourPoolMgr;
     
 }
 
 alloc_status mem_pool_close(pool_pt pool) {
     
-    // TODO implement
+    // Upcast the pool pointer to a pool_mgr pointer
+    const pool_mgr_pt poolManager = (pool_mgr_pt) pool;
+    
+    // Find the provided pool in the pool_store list
+    
+    // We're going to do this first, so if the pool isn't found we haven't modified it
+    
+    unsigned int storeIndex = 0;
+    
+    while(pool_store[storeIndex] != poolManager) {
+        
+        if(storeIndex >= pool_store_capacity) {
+            
+            // We've exceeded the store capacity, pool not found
+            return ALLOC_NOT_FREED;
+            
+        }
+        
+        // Increment storeIndex
+        ++storeIndex;
+        
+    }
+    
+    // Free each gap
+    for(unsigned int j = 0; j < poolManager->used_gaps; ++j) {
+        
+        free(poolManager->gap_ix[j]);
+        
+    }
+    
+    // Free the actual array of gap pointers
+    free(poolManager->gap_ix);
+    
+    // Free each node
+    
+        // Set peter to the first node in the heap
+        node_pt pete = poolManager->node_heap;
+        
+        // Traverse the linked list to the end, clearing all the nodes before us
+        while(pete->next != NULL) {
+            
+            pete = pete->next;
+            
+            free(pete->prev);
+            
+        }
+    
+    // We may have to kill my step-dad...
+    free(pete);
+    
+    // Reorganize the pool store pointers (basically send the last pointer here, unless we are the last)
+    if(storeIndex == pool_store_capacity - 1) {
+        
+        // Last store, just set it to NULL
+        
+        pool_store[storeIndex] = NULL;
+        
+    } else {
+        
+        // Not the last store, swap it for the last pointer then set that pointer to NULL
+        
+        pool_store[storeIndex] = pool_store[pool_store_capacity - 1];
+        
+        pool_store[pool_store_capacity - 1] = NULL;
+        
+    }
+    
+    // Decrement pool_store_capacity
+    --pool_store_capacity;
+    
+    // Free the pool
+    free(poolManager);
 
-    return ALLOC_FAIL;
+    return ALLOC_OK;
     
 }
 
 alloc_pt mem_new_alloc(pool_pt pool, size_t size) {
     
-    // TODO implement
+    const pool_mgr_pt poolManager = (pool_mgr_pt) pool;
+    
+    // Find a block of memory
+    
+    if(poolManager->pool.policy == FIRST_FIT) {
+        
+        // Look through the gaps, choose the first one big enough
+        
+    }
+    
+    if (poolManager->pool.policy == BEST_FIT) {
+        
+        // Look through all the gaps, find the best one
+        
+    }
 
     return NULL;
     
 }
 
 alloc_status mem_del_alloc(pool_pt pool, alloc_pt alloc) {
-    
-    // TODO implement
 
     return ALLOC_FAIL;
     
@@ -261,22 +304,44 @@ alloc_status mem_del_alloc(pool_pt pool, alloc_pt alloc) {
 // NOTE: Allocates a dynamic array. Caller responsible for releasing.
 void mem_inspect_pool(pool_pt pool, pool_segment_pt segments, unsigned *num_segments) {
     
-    // TODO implement
-    
 }
 
-
-/* Definitions of static functions */
 static alloc_status _mem_resize_pool_store() {
     
-    // TODO implement
+    // Are too many pools in use?
+    if(pool_store_capacity < pool_store_size * MEM_POOL_STORE_FILL_FACTOR) {
+        
+        // NO, do nothing
+        return ALLOC_OK;
+        
+    }
+    
+    // We'll use a temporary pointer, in the event that the realloc call fails,
+    // we'd rather deny the mem_pool_open call rather than obliterate the entire pool_store
+    
+    pool_mgr_pt * bob = (pool_mgr_pt *) realloc(pool_store, pool_store_size * MEM_POOL_STORE_EXPAND_FACTOR * sizeof(pool_mgr_pt));
+    
+    // Did the realloc call succeed?
+    if(bob == NULL) {
+        
+        // Return NULL on failure
+        return ALLOC_FAIL;
+        
+    } else {
+        
+        // Assign bob to the pool_store
+        pool_store = bob;
+        
+        // Modify the pool_store_size to match the new size
+        pool_store_size *= MEM_POOL_STORE_EXPAND_FACTOR;
+        
+    }
 
-    return ALLOC_FAIL;
+    return ALLOC_OK;
+    
 }
 
 static alloc_status _mem_resize_node_heap(pool_mgr_pt pool_mgr) {
-    
-    // TODO implement
 
     return ALLOC_FAIL;
     
@@ -284,15 +349,41 @@ static alloc_status _mem_resize_node_heap(pool_mgr_pt pool_mgr) {
 
 static alloc_status _mem_resize_gap_ix(pool_mgr_pt pool_mgr) {
     
-    // TODO implement
-
-    return ALLOC_FAIL;
+    // Are too many gaps in use?
+    if(pool_mgr->used_gaps < pool_mgr->total_gaps * MEM_GAP_IX_FILL_FACTOR) {
+        
+        // NO, do nothing
+        return ALLOC_OK;
+        
+    }
+    
+    // We'll use a temporary pointer, in the event that the realloc call fails
+    
+    gap_pt * bob = (gap_pt *) realloc(pool_mgr->gap_ix, pool_mgr->total_gaps * MEM_GAP_IX_EXPAND_FACTOR * sizeof(gap_pt));
+    
+    // Did the realloc call succeed?
+    if(bob == NULL) {
+        
+        // Return NULL on failure
+        return ALLOC_FAIL;
+        
+    } else {
+        
+        // Assign bob to the pool_store
+        pool_mgr->gap_ix = bob;
+        
+        // Modify the pool_store_size to match the new size
+        pool_store_size *= MEM_POOL_STORE_EXPAND_FACTOR;
+        
+    }
+    
+    return ALLOC_OK;
     
 }
 
 static alloc_status _mem_add_to_gap_ix(pool_mgr_pt pool_mgr, size_t size, node_pt node) {
     
-    // TODO implement
+    
 
     return ALLOC_FAIL;
     
@@ -300,7 +391,7 @@ static alloc_status _mem_add_to_gap_ix(pool_mgr_pt pool_mgr, size_t size, node_p
 
 static alloc_status _mem_remove_from_gap_ix(pool_mgr_pt pool_mgr, size_t size, node_pt node) {
     
-    // TODO implement
+    
 
     return ALLOC_FAIL;
     
@@ -309,7 +400,7 @@ static alloc_status _mem_remove_from_gap_ix(pool_mgr_pt pool_mgr, size_t size, n
 
 static alloc_status _mem_sort_gap_ix(pool_mgr_pt pool_mgr) {
 
-    // TODO implement
+    
 
     return ALLOC_FAIL;
     
