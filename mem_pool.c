@@ -185,6 +185,21 @@ pool_pt mem_pool_open(size_t size, alloc_policy policy) {
     ourPoolMgr->pool.alloc_size = size;
     
     ourPoolMgr->gap_ix = calloc(MEM_GAP_IX_INIT_CAPACITY, sizeof(gap_t));
+    
+    ourPoolMgr->node_heap = calloc(MEM_NODE_HEAP_INIT_CAPACITY, sizeof(node_t));
+    
+    // Did those calloc calls succeed?
+    if(ourPoolMgr->gap_ix == NULL || ourPoolMgr->node_heap == NULL) {
+        
+        // No. Try to clean up the mess
+        free(ourPoolMgr->pool.mem);
+        free(ourPoolMgr->gap_ix);
+        free(ourPoolMgr->node_heap);
+        free(ourPoolMgr);
+        
+        return NULL;
+        
+    }
 
     // Return dat pointer (casted to a pool_pt) to stop the compiler from bitching
     return (pool_pt) ourPoolMgr;
@@ -281,20 +296,6 @@ alloc_status mem_pool_close(pool_pt pool) {
 alloc_pt mem_new_alloc(pool_pt pool, size_t size) {
     
     const pool_mgr_pt poolManager = (pool_mgr_pt) pool;
-    
-    // Find a block of memory
-    
-    if(poolManager->pool.policy == FIRST_FIT) {
-        
-        // Look through the gaps, choose the first one big enough
-        
-    }
-    
-    if (poolManager->pool.policy == BEST_FIT) {
-        
-        // Look through all the gaps, find the best one
-        
-    }
 
     return NULL;
     
@@ -433,66 +434,82 @@ static alloc_status _mem_add_to_gap_ix(pool_mgr_pt pool_mgr, size_t size, node_p
     gap->node = node;
     gap->size = size;
     
-    // Remove node from node_heap
-    for(unsigned int i = 0; i < pool_mgr->used_gaps; ++i) {
+    // Resort gap table
+    _mem_sort_gap_ix(pool_mgr);
+
+    // We're going to remove the node from the linked list, but first we must deal with relinking
+    // (just like a tyical linked-list node removal)
+    
+    if(node->prev != NULL) {
         
-        // Is this the node?
-        if(&(pool_mgr->node_heap[i]) == node) {
-            
-            // It is
-            
-            // We're going to remove it from the linked list, but first we must deal with relinking
-            // (just like a tyical linked-list node removal)
-            
-            if(node->prev != NULL) {
-                node->prev->next = node->next;
-            }
-            
-            if(node->next != NULL) {
-                node->next->prev = node->prev;
-            }
-            
-            // Then we're going to take the last node (last position) and swap it into the hole
-            node = &(pool_mgr->node_heap[pool_mgr->used_nodes - 2]);
-            
-            // Deal with relinking
-            if(node->prev != NULL) {
-                node->prev->next = node;
-            }
-            
-            if(node->next != NULL) {
-                node->next->prev = node;
-            }
-            
-            --(pool_mgr->used_nodes);
-            
-            break;
-            
-        }
+        // Rewire [n-1]'s next to [n+1]
+        node->prev->next = node->next;
+        
+    } else {
+        
+        // Node is the first element, set [n+1]'s previous to NULL
+        node->next->prev = NULL;
         
     }
     
-    // Reorder gaps
-    _mem_sort_gap_ix(pool_mgr);
+    if(node->next != NULL) {
+        
+        // Rewire [n+1]'s previous to [n-1]
+        node->next->prev = node->prev;
+        
+    } else {
+        
+        // Node is the last element, set [n-1]'s next to NULL
+        node->prev->next = NULL;
+        
+    }
+    
+    // Then we're going to take the last node (last position) and swap it into the hole
+    node = &(pool_mgr->node_heap[pool_mgr->used_nodes - 2]);
+    
+    // Deal with relinking
+    if(node->prev != NULL) {
+        node->prev->next = node;
+    }
+    
+    if(node->next != NULL) {
+        node->next->prev = node;
+    }
+    
+    --(pool_mgr->used_nodes);
 
-    return ALLOC_FAIL;
+    return ALLOC_OK;
     
 }
 
 static alloc_status _mem_remove_from_gap_ix(pool_mgr_pt pool_mgr, size_t size, node_pt node) {
     
+    // Find a block of memory from the gap table
     
-
-    return ALLOC_FAIL;
+    if(pool_mgr->pool.policy == FIRST_FIT) {
+        
+        // Look through the gaps, choose the first one (closest fitting)
+        
+    }
+    
+    if(pool_mgr->pool.policy == BEST_FIT) {
+        
+        // Look through all the gaps, find the best one (closest fitting)
+        
+    }
+    
+    // Remove the gap from the gap table
+    
+    // Create a new node and configure it
+    
+    return ALLOC_OK;
     
 }
 
 
 static alloc_status _mem_sort_gap_ix(pool_mgr_pt pool_mgr) {
 
-    
-
-    return ALLOC_FAIL;
+    return ALLOC_OK;
     
 }
 
