@@ -47,13 +47,13 @@ typedef struct _pool_mgr {
     
     pool_t pool;
     
-    node_pt * node_heap;
+    node_pt node_heap;
     
     unsigned total_nodes;
     
     unsigned used_nodes;
     
-    gap_pt * gap_ix;
+    gap_pt gap_ix;
     
     unsigned total_gaps;
     
@@ -62,7 +62,7 @@ typedef struct _pool_mgr {
 } pool_mgr_t, *pool_mgr_pt;
 
 /* Static global variables */
-static pool_mgr_pt * pool_store = NULL; // an array of pointers, only expand
+static pool_mgr_pt * pool_store = NULL;
 static unsigned pool_store_size = 0;
 static unsigned pool_store_capacity = 0;
 
@@ -219,7 +219,7 @@ alloc_status mem_pool_close(pool_pt pool) {
     // Free each gap
     for(unsigned int j = 0; j < poolManager->used_gaps; ++j) {
         
-        free(poolManager->gap_ix[j]);
+        free(&(poolManager->gap_ix[j]));
         
     }
     
@@ -227,21 +227,29 @@ alloc_status mem_pool_close(pool_pt pool) {
     free(poolManager->gap_ix);
     
     // Free each node
-    
-        // Set peter to the first node in the heap
-        node_pt pete = poolManager->node_heap;
+    for(unsigned int j = 0; j < poolManager->used_nodes; ++j) {
         
-        // Traverse the linked list to the end, clearing all the nodes before us
-        while(pete->next != NULL) {
-            
-            pete = pete->next;
-            
-            free(pete->prev);
-            
-        }
+        free(&(poolManager->node_heap[j]));
+        
+    }
+    
+    // Free the actual array of gap pointers
+    free(poolManager->node_heap);
+    
+    /*// Set peter to the first node in the heap
+    node_pt pete = poolManager->node_heap;
+    
+    // Traverse the linked list to the end, clearing all the nodes before us
+    while(pete->next != NULL) {
+        
+        pete = pete->next;
+        
+        free(pete->prev);
+        
+    }
     
     // We may have to kill my step-dad...
-    free(pete);
+    free(pete);*/
     
     // Reorganize the pool store pointers (basically send the last pointer here, unless we are the last)
     if(storeIndex == pool_store_capacity - 1) {
@@ -301,6 +309,8 @@ alloc_status mem_del_alloc(pool_pt pool, alloc_pt alloc) {
 // NOTE: Allocates a dynamic array. Caller responsible for releasing.
 void mem_inspect_pool(pool_pt pool, pool_segment_pt segments, unsigned *num_segments) {
     
+    
+    
 }
 
 static alloc_status _mem_resize_pool_store() {
@@ -350,7 +360,7 @@ static alloc_status _mem_resize_node_heap(pool_mgr_pt pool_mgr) {
     
     // We'll use a temporary pointer, in the event that the realloc call fails
     
-    node_pt * bob = (node_pt *) realloc(pool_mgr->node_heap, pool_mgr->total_nodes * MEM_NODE_HEAP_EXPAND_FACTOR * sizeof(node_pt));
+    node_pt bob = (node_pt) realloc(pool_mgr->node_heap, pool_mgr->total_nodes * MEM_NODE_HEAP_EXPAND_FACTOR * sizeof(node_pt));
     
     // Did the realloc call succeed?
     if(bob == NULL) {
@@ -384,7 +394,7 @@ static alloc_status _mem_resize_gap_ix(pool_mgr_pt pool_mgr) {
     
     // We'll use a temporary pointer, in the event that the realloc call fails
     
-    gap_pt * bob = (gap_pt *) realloc(pool_mgr->gap_ix, pool_mgr->total_gaps * MEM_GAP_IX_EXPAND_FACTOR * sizeof(gap_pt));
+    gap_pt bob = (gap_pt) realloc(pool_mgr->gap_ix, pool_mgr->total_gaps * MEM_GAP_IX_EXPAND_FACTOR * sizeof(gap_pt));
     
     // Did the realloc call succeed?
     if(bob == NULL) {
@@ -408,7 +418,62 @@ static alloc_status _mem_resize_gap_ix(pool_mgr_pt pool_mgr) {
 
 static alloc_status _mem_add_to_gap_ix(pool_mgr_pt pool_mgr, size_t size, node_pt node) {
     
+    // Make sure gap_ix is large enough
+    if(_mem_resize_gap_ix(pool_mgr) == ALLOC_FAIL) {
+        
+        // Resize needed but could not be preformed
+        return ALLOC_FAIL;
+        
+    }
     
+    // Grab the next existing gap and configure it
+    gap_pt gap = &(pool_mgr->gap_ix[pool_mgr->used_gaps++]);
+    
+    // Setup the gap
+    gap->node = node;
+    gap->size = size;
+    
+    // Remove node from node_heap
+    for(unsigned int i = 0; i < pool_mgr->used_gaps; ++i) {
+        
+        // Is this the node?
+        if(&(pool_mgr->node_heap[i]) == node) {
+            
+            // It is
+            
+            // We're going to remove it from the linked list, but first we must deal with relinking
+            // (just like a tyical linked-list node removal)
+            
+            if(node->prev != NULL) {
+                node->prev->next = node->next;
+            }
+            
+            if(node->next != NULL) {
+                node->next->prev = node->prev;
+            }
+            
+            // Then we're going to take the last node (last position) and swap it into the hole
+            node = &(pool_mgr->node_heap[pool_mgr->used_nodes - 2]);
+            
+            // Deal with relinking
+            if(node->prev != NULL) {
+                node->prev->next = node;
+            }
+            
+            if(node->next != NULL) {
+                node->next->prev = node;
+            }
+            
+            --(pool_mgr->used_nodes);
+            
+            break;
+            
+        }
+        
+    }
+    
+    // Reorder gaps
+    _mem_sort_gap_ix(pool_mgr);
 
     return ALLOC_FAIL;
     
