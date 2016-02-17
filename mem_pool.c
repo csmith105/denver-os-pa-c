@@ -6,10 +6,8 @@
 #include <assert.h>
 #include <stdio.h>
 
-#include "mem_pool.h"  reas
+#include "mem_pool.h"
 
-
-/* Constants */
 static const float      MEM_FILL_FACTOR                 = 0.75;
 static const unsigned   MEM_EXPAND_FACTOR               = 2;
 
@@ -25,7 +23,6 @@ static const unsigned   MEM_GAP_IX_INIT_CAPACITY        = 40;
 static const float      MEM_GAP_IX_FILL_FACTOR          = MEM_FILL_FACTOR;
 static const unsigned   MEM_GAP_IX_EXPAND_FACTOR        = MEM_EXPAND_FACTOR;
 
-/* Type declarations */
 typedef struct _node {
     
     alloc_t alloc_record;
@@ -50,7 +47,7 @@ typedef struct _pool_mgr {
     
     pool_t pool;
     
-    node_pt node_heap;
+    node_pt * node_heap;
     
     unsigned total_nodes;
     
@@ -343,7 +340,35 @@ static alloc_status _mem_resize_pool_store() {
 
 static alloc_status _mem_resize_node_heap(pool_mgr_pt pool_mgr) {
 
-    return ALLOC_FAIL;
+    // Are too many pools in use?
+    if(pool_mgr->used_nodes < pool_mgr->total_nodes * MEM_NODE_HEAP_FILL_FACTOR) {
+        
+        // NO, do nothing
+        return ALLOC_OK;
+        
+    }
+    
+    // We'll use a temporary pointer, in the event that the realloc call fails
+    
+    node_pt * bob = (node_pt *) realloc(pool_mgr->node_heap, pool_mgr->total_nodes * MEM_NODE_HEAP_EXPAND_FACTOR * sizeof(node_pt));
+    
+    // Did the realloc call succeed?
+    if(bob == NULL) {
+        
+        // Return NULL on failure
+        return ALLOC_FAIL;
+        
+    } else {
+        
+        // Assign bob to the pool_store
+        pool_mgr->node_heap = bob;
+        
+        // Modify the pool_store_size to match the new size
+        pool_mgr->total_nodes *= MEM_NODE_HEAP_EXPAND_FACTOR;
+        
+    }
+    
+    return ALLOC_OK;
     
 }
 
@@ -373,7 +398,7 @@ static alloc_status _mem_resize_gap_ix(pool_mgr_pt pool_mgr) {
         pool_mgr->gap_ix = bob;
         
         // Modify the pool_store_size to match the new size
-        pool_store_size *= MEM_POOL_STORE_EXPAND_FACTOR;
+        pool_mgr->total_gaps *= MEM_GAP_IX_EXPAND_FACTOR;
         
     }
     
