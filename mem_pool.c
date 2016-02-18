@@ -228,11 +228,41 @@ static node_pt _add_node(pool_mgr_pt pool_mgr) {
     newNode->alloc_record.mem = NULL;
     newNode->alloc_record.size = 0;
     
-    // OK now let's set it up
+    // We're actually not going to setup the node here, only wire it up
     
+    // Is this the first node to be added to the heap?
+    if(pool_mgr->used_nodes == 1) {
+        
+        // It is, special case, next and prev are already NULL, just return it
+        
+        return newNode;
+        
+    }
     
+    // More than one node exists in the list
+    
+    // Find the last node in the linked list by parsing it to the end
+    node_pt endNode = pool_mgr->node_heap;
+    
+    while(endNode->next != NULL) {
+        
+        // Just keep swimming...
+        endNode = endNode->next;
+        
+    }
+    
+    // Wire the end node's next to the new node
+    endNode->next = newNode;
+    
+    // Wire the new node's prev to the end node
+    newNode->prev = endNode;
+    
+    return newNode;
     
 }
+
+
+
 
 
 alloc_status mem_init() {
@@ -296,30 +326,25 @@ pool_pt mem_pool_open(size_t size, alloc_policy policy) {
         
     }
     
-    // Are too many pools in use?
-    if(pool_store_capacity >= pool_store_size * MEM_POOL_STORE_FILL_FACTOR) {
+    // Do we need to grab more space?
+    if(_mem_resize_pool_store() != ALLOC_OK) {
         
-        // We need to resize
-        if (_mem_resize_pool_store() != ALLOC_OK) {
-            
-            // Return NULL on failure to resize
-            return NULL;
-            
-        }
+        // Return NULL on failure to resize
+        return NULL;
         
     }
     
-    // Setup the pool
+    // Increment pool_store_capacity
     ++pool_store_capacity;
     
     // Grab a pointer to the actual pool manager we're setting up
-    pool_mgr_pt ourPoolMgr = pool_store[pool_store_capacity - 1];
+    pool_mgr_pt pool_mgr = pool_store[pool_store_capacity - 1];
     
     // Create the pool
-    ourPoolMgr = calloc(1, sizeof(pool_mgr_t));
+    pool_mgr = calloc(1, sizeof(pool_mgr_t));
     
     // Did the calloc call succeed?
-    if(ourPoolMgr == NULL) {
+    if(pool_mgr == NULL) {
         
         // It didn't :(
         return NULL;
@@ -327,41 +352,45 @@ pool_pt mem_pool_open(size_t size, alloc_policy policy) {
     }
     
     // Setup the policy
-    ourPoolMgr->pool.policy = policy;
+    pool_mgr->pool.policy = policy;
     
     // May as well actually allocate the size requested, or at least try to
-    ourPoolMgr->pool.mem = malloc(size);
+    pool_mgr->pool.mem = malloc(size);
     
     // Did the malloc call succeed?
-    if(ourPoolMgr->pool.mem == NULL) {
+    if(pool_mgr->pool.mem == NULL) {
         
         // It didn't :(
+        free(pool_mgr);
         return NULL;
         
     }
     
-    // Setup the size
-    ourPoolMgr->pool.alloc_size = size;
+    pool_mgr->pool.alloc_size = size;
     
-    ourPoolMgr->gap_ix = calloc(MEM_GAP_IX_INIT_CAPACITY, sizeof(gap_t));
+    pool_mgr->gap_ix = calloc(MEM_GAP_IX_INIT_CAPACITY, sizeof(gap_t));
+    pool_mgr->total_gaps = MEM_GAP_IX_INIT_CAPACITY;
+    pool_mgr->used_gaps = 0;
     
-    ourPoolMgr->node_heap = calloc(MEM_NODE_HEAP_INIT_CAPACITY, sizeof(node_t));
+    pool_mgr->node_heap = calloc(MEM_NODE_HEAP_INIT_CAPACITY, sizeof(node_t));
+    pool_mgr->total_nodes = MEM_NODE_HEAP_INIT_CAPACITY;
+    pool_mgr->used_nodes = 0;
     
     // Did those calloc calls succeed?
-    if(ourPoolMgr->gap_ix == NULL || ourPoolMgr->node_heap == NULL) {
+    if(pool_mgr->gap_ix == NULL || pool_mgr->node_heap == NULL) {
         
         // No. Try to clean up the mess
-        free(ourPoolMgr->pool.mem);
-        free(ourPoolMgr->gap_ix);
-        free(ourPoolMgr->node_heap);
-        free(ourPoolMgr);
+        free(pool_mgr->pool.mem);
+        free(pool_mgr->gap_ix);
+        free(pool_mgr->node_heap);
+        free(pool_mgr);
         
         return NULL;
         
     }
 
     // Return dat pointer (casted to a pool_pt) to stop the compiler from bitching
-    return (pool_pt) ourPoolMgr;
+    return (pool_pt) pool_mgr;
     
 }
 
@@ -520,7 +549,7 @@ static alloc_status _mem_resize_node_heap(pool_mgr_pt pool_mgr) {
     
     // We'll use a temporary pointer, in the event that the realloc call fails
     
-    node_pt bob = (node_pt) realloc(pool_mgr->node_heap, pool_mgr->total_nodes * MEM_NODE_HEAP_EXPAND_FACTOR * sizeof(node_pt));
+    node_pt bob = (node_pt) realloc(pool_mgr->node_heap, pool_mgr->total_nodes * MEM_NODE_HEAP_EXPAND_FACTOR * sizeof(node_t));
     
     // Did the realloc call succeed?
     if(bob == NULL) {
@@ -554,7 +583,7 @@ static alloc_status _mem_resize_gap_ix(pool_mgr_pt pool_mgr) {
     
     // We'll use a temporary pointer, in the event that the realloc call fails
     
-    gap_pt bob = (gap_pt) realloc(pool_mgr->gap_ix, pool_mgr->total_gaps * MEM_GAP_IX_EXPAND_FACTOR * sizeof(gap_pt));
+    gap_pt bob = (gap_pt) realloc(pool_mgr->gap_ix, pool_mgr->total_gaps * MEM_GAP_IX_EXPAND_FACTOR * sizeof(gap_t));
     
     // Did the realloc call succeed?
     if(bob == NULL) {

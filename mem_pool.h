@@ -1,7 +1,3 @@
-/*
- * Created by Ivo Georgiev on 2/9/16.
- */
-
 #ifndef DENVER_OS_PA_C_MEM_POOL_H
 #define DENVER_OS_PA_C_MEM_POOL_H
 
