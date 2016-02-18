@@ -70,6 +70,7 @@ static alloc_status _mem_add_to_gap_ix(pool_mgr_pt pool_mgr, size_t size, node_p
 static alloc_status _mem_remove_from_gap_ix(pool_mgr_pt pool_mgr, size_t size, node_pt node);
 static alloc_status _mem_sort_gap_ix(pool_mgr_pt pool_mgr);
 
+// IDK
 static alloc_status _remove_gap(pool_mgr_pt pool_mgr, gap_pt gap) {
     
     // Get a reference to the last gap
@@ -97,6 +98,7 @@ static alloc_status _remove_gap(pool_mgr_pt pool_mgr, gap_pt gap) {
     
 }
 
+// IDK
 static gap_pt _add_gap(pool_mgr_pt pool_mgr, node_pt node) {
     
     // Do we need to grab more space?
@@ -122,6 +124,7 @@ static gap_pt _add_gap(pool_mgr_pt pool_mgr, node_pt node) {
     
 }
 
+// IDK
 static alloc_status _remove_node(pool_mgr_pt pool_mgr, node_pt node) {
     
     // We're going to remove the node from the linked list, but first we must deal with relinking
@@ -203,6 +206,7 @@ static alloc_status _remove_node(pool_mgr_pt pool_mgr, node_pt node) {
     
 }
 
+// IDK
 static node_pt _add_node(pool_mgr_pt pool_mgr) {
     
     // Do we need to grab more space?
@@ -261,10 +265,7 @@ static node_pt _add_node(pool_mgr_pt pool_mgr) {
     
 }
 
-
-
-
-
+// TESTED - GOOD
 alloc_status mem_init() {
     
     // Initialize the memory management system
@@ -296,13 +297,12 @@ alloc_status mem_init() {
     
 }
 
+// TESTED - GOOD
 alloc_status mem_free() {
-    
-    // Basically free everything, a rather tricky endevour to do correctly
     
     for(unsigned int i = 0; i < pool_store_capacity; ++i) {
         
-        // For each pool in use
+        // Free each pool currently in use
         mem_pool_close((pool_pt) pool_store[i]);
         
     }
@@ -316,6 +316,7 @@ alloc_status mem_free() {
     
 }
 
+// TESTED - GOOD
 pool_pt mem_pool_open(size_t size, alloc_policy policy) {
     
     // Has the pool_store been initialized?
@@ -337,11 +338,8 @@ pool_pt mem_pool_open(size_t size, alloc_policy policy) {
     // Increment pool_store_capacity
     ++pool_store_capacity;
     
-    // Grab a pointer to the actual pool manager we're setting up
-    pool_mgr_pt pool_mgr = pool_store[pool_store_capacity - 1];
-    
     // Create the pool
-    pool_mgr = calloc(1, sizeof(pool_mgr_t));
+    pool_mgr_pt pool_mgr = calloc(1, sizeof(pool_mgr_t));
     
     // Did the calloc call succeed?
     if(pool_mgr == NULL) {
@@ -350,6 +348,9 @@ pool_pt mem_pool_open(size_t size, alloc_policy policy) {
         return NULL;
         
     }
+    
+    // Connect our new pool manager to the pointer table
+    pool_store[pool_store_capacity - 1] = pool_mgr;
     
     // Setup the policy
     pool_mgr->pool.policy = policy;
@@ -361,7 +362,9 @@ pool_pt mem_pool_open(size_t size, alloc_policy policy) {
     if(pool_mgr->pool.mem == NULL) {
         
         // It didn't :(
+        
         free(pool_mgr);
+        
         return NULL;
         
     }
@@ -379,7 +382,8 @@ pool_pt mem_pool_open(size_t size, alloc_policy policy) {
     // Did those calloc calls succeed?
     if(pool_mgr->gap_ix == NULL || pool_mgr->node_heap == NULL) {
         
-        // No. Try to clean up the mess
+        // It didn't :(
+        
         free(pool_mgr->pool.mem);
         free(pool_mgr->gap_ix);
         free(pool_mgr->node_heap);
@@ -389,15 +393,16 @@ pool_pt mem_pool_open(size_t size, alloc_policy policy) {
         
     }
 
-    // Return dat pointer (casted to a pool_pt) to stop the compiler from bitching
+    // Return dat pointer (casted to a pool_pt)
     return (pool_pt) pool_mgr;
     
 }
 
+// TESTED - GOOD
 alloc_status mem_pool_close(pool_pt pool) {
     
     // Upcast the pool pointer to a pool_mgr pointer
-    const pool_mgr_pt poolManager = (pool_mgr_pt) pool;
+    const pool_mgr_pt pool_mgr = (pool_mgr_pt) pool;
     
     // Find the provided pool in the pool_store list
     
@@ -405,7 +410,7 @@ alloc_status mem_pool_close(pool_pt pool) {
     
     unsigned int storeIndex = 0;
     
-    while(pool_store[storeIndex] != poolManager) {
+    while(pool_store[storeIndex] != pool_mgr) {
         
         if(storeIndex >= pool_store_capacity) {
             
@@ -419,54 +424,29 @@ alloc_status mem_pool_close(pool_pt pool) {
         
     }
     
-    // Free each gap
-    for(unsigned int j = 0; j < poolManager->used_gaps; ++j) {
-        
-        free(&(poolManager->gap_ix[j]));
-        
-    }
+    // Free the allocated memory
+    free(pool_mgr->pool.mem);
     
-    // Free the actual array of gap pointers
-    free(poolManager->gap_ix);
+    // Free the array of gaps
+    free(pool_mgr->gap_ix);
     
-    // Free each node
-    for(unsigned int j = 0; j < poolManager->used_nodes; ++j) {
-        
-        free(&(poolManager->node_heap[j]));
-        
-    }
+    // Free the array of nodes
+    free(pool_mgr->node_heap);
     
-    // Free the actual array of gap pointers
-    free(poolManager->node_heap);
+    // Free the pool_mgr struct
+    free(pool_mgr);
     
-    /*// Set peter to the first node in the heap
-    node_pt pete = poolManager->node_heap;
-    
-    // Traverse the linked list to the end, clearing all the nodes before us
-    while(pete->next != NULL) {
-        
-        pete = pete->next;
-        
-        free(pete->prev);
-        
-    }
-    
-    // We may have to kill my step-dad...
-    free(pete);*/
-    
-    // Reorganize the pool store pointers (basically send the last pointer here, unless we are the last)
+    // Reorganize the pool store pointers
+    // (send the last pointer here, unless we are the last)
     if(storeIndex == pool_store_capacity - 1) {
         
         // Last store, just set it to NULL
-        
         pool_store[storeIndex] = NULL;
         
     } else {
         
         // Not the last store, swap it for the last pointer then set that pointer to NULL
-        
         pool_store[storeIndex] = pool_store[pool_store_capacity - 1];
-        
         pool_store[pool_store_capacity - 1] = NULL;
         
     }
@@ -475,12 +455,13 @@ alloc_status mem_pool_close(pool_pt pool) {
     --pool_store_capacity;
     
     // Free the pool
-    free(poolManager);
+    free(pool_mgr);
 
     return ALLOC_OK;
     
 }
 
+// INCOMPLETE
 alloc_pt mem_new_alloc(pool_pt pool, size_t size) {
     
     const pool_mgr_pt pool_mgr = (pool_mgr_pt) pool;
@@ -489,6 +470,7 @@ alloc_pt mem_new_alloc(pool_pt pool, size_t size) {
     
 }
 
+// INCOMPLETE
 alloc_status mem_del_alloc(pool_pt pool, alloc_pt alloc) {
 
     return ALLOC_FAIL;
@@ -502,6 +484,7 @@ void mem_inspect_pool(pool_pt pool, pool_segment_pt segments, unsigned *num_segm
     
 }
 
+// LOOKS OK
 static alloc_status _mem_resize_pool_store() {
     
     // Are too many pools in use?
@@ -537,6 +520,7 @@ static alloc_status _mem_resize_pool_store() {
     
 }
 
+// LOOKS OK
 static alloc_status _mem_resize_node_heap(pool_mgr_pt pool_mgr) {
 
     // Are too many pools in use?
@@ -571,6 +555,7 @@ static alloc_status _mem_resize_node_heap(pool_mgr_pt pool_mgr) {
     
 }
 
+// LOOKS OK
 static alloc_status _mem_resize_gap_ix(pool_mgr_pt pool_mgr) {
     
     // Are too many gaps in use?
@@ -605,6 +590,7 @@ static alloc_status _mem_resize_gap_ix(pool_mgr_pt pool_mgr) {
     
 }
 
+// INCOMPLETE
 static alloc_status _mem_add_to_gap_ix(pool_mgr_pt pool_mgr, size_t size, node_pt node) {
     
     // Make sure gap_ix is large enough
@@ -666,6 +652,7 @@ static alloc_status _mem_add_to_gap_ix(pool_mgr_pt pool_mgr, size_t size, node_p
     
 }
 
+// INCOMPLETE
 static alloc_status _mem_remove_from_gap_ix(pool_mgr_pt pool_mgr, size_t size, node_pt node) {
     
     // Find a block of memory from the gap table
@@ -692,14 +679,14 @@ static alloc_status _mem_remove_from_gap_ix(pool_mgr_pt pool_mgr, size_t size, n
     
 }
 
-// Jacked a quick and dirty QuickSort implementation from
-// http://www.comp.dit.ie/rlawlor/Alg_DS/sorting/quickSort.c
-// I've written QuickSort so many fucking times, I don't feel the need to do it again
-
-// We'll need to modify this to work with the gap index...
-
+// LOOKS OK
 int partitionGap(gap_pt gaps, int l, int r) {
     
+    // Jacked a quick and dirty QuickSort implementation from
+    // http://www.comp.dit.ie/rlawlor/Alg_DS/sorting/quickSort.c
+    
+    // We'll need to modify this to work with the gap index...
+
     int i = l, j = r + 1;
     
     gap_pt t;
@@ -730,8 +717,14 @@ int partitionGap(gap_pt gaps, int l, int r) {
     
 }
 
+// LOOKS OK
 void quickSortGap(gap_pt gaps, int l, int r) {
     
+    // Jacked a quick and dirty QuickSort implementation from
+    // http://www.comp.dit.ie/rlawlor/Alg_DS/sorting/quickSort.c
+    
+    // We'll need to modify this to work with the gap index...
+
     if(l < r) {
         
         int j = partitionGap(gaps, l, r);
@@ -743,6 +736,7 @@ void quickSortGap(gap_pt gaps, int l, int r) {
     
 }
 
+// LOOKS OK
 static alloc_status _mem_sort_gap_ix(pool_mgr_pt pool_mgr) {
     
     // Sort the gap list, smallest sizes first
