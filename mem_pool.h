@@ -55,9 +55,6 @@ typedef enum _alloc_status {
     
 } alloc_status;
 
-/* function declarations */
-
-/* TODO descriptions */
 alloc_status mem_init();
 
 alloc_status mem_free();

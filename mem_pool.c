@@ -1,7 +1,3 @@
-/*
- * Created by Ivo Georgiev on 2/9/16.
- */
-
 #include <stdlib.h>
 #include <assert.h>
 #include <stdio.h>
@@ -31,7 +27,7 @@ typedef struct _node {
     
     unsigned allocated;
     
-    struct _node *next, *prev; // doubly-linked list for gap deletion
+    struct _node *next, *prev;
     
 } node_t, *node_pt;
 
@@ -74,7 +70,170 @@ static alloc_status _mem_add_to_gap_ix(pool_mgr_pt pool_mgr, size_t size, node_p
 static alloc_status _mem_remove_from_gap_ix(pool_mgr_pt pool_mgr, size_t size, node_pt node);
 static alloc_status _mem_sort_gap_ix(pool_mgr_pt pool_mgr);
 
-/* Definitions of user-facing functions */
+static alloc_status _remove_gap(pool_mgr_pt pool_mgr, gap_pt gap) {
+    
+    // Get a reference to the last gap
+    const gap_pt lastGap = &(pool_mgr->gap_ix[pool_mgr->used_gaps - 1]);
+    
+    // Copy the end gap to the position of the to be deleted gap
+    *gap = *lastGap;
+    
+    // Nothing directly links to gaps, other than the gap_ix table,
+    // so there's no cleanup work to do
+    
+    // Our to-be-deleted gap is now gone, decrement the used_gaps count
+    --(pool_mgr->used_gaps);
+    
+    // NOTE: This does leave a copy of the last gap in the gap table,
+    // however we're now considering that gap as available space, not
+    // to be indexed, sorted and available for overriting.
+    
+    // Nevertheless, let's nuke it anyway (just in case)
+    lastGap->node = NULL;
+    lastGap->size = 0;
+    
+    // We've altered the gap list, so let's resort it
+    return _mem_sort_gap_ix(pool_mgr);
+    
+}
+
+static gap_pt _add_gap(pool_mgr_pt pool_mgr, node_pt node) {
+    
+    // Do we need to grab more space?
+    if(_mem_resize_gap_ix(pool_mgr) != ALLOC_OK) {
+        
+        // Return NULL on failure to resize
+        return NULL;
+        
+    }
+    
+    // Increment used_gaps
+    ++(pool_mgr->used_gaps);
+    
+    // Get a reference to the new gap we just "created"
+    const gap_pt newGap = &(pool_mgr->gap_ix[pool_mgr->used_gaps - 1]);
+
+    // Setup the new gap
+    newGap->size = node->alloc_record.size;
+    newGap->node = node;
+    
+    // We've altered the gap list, so let's resort it
+    return (_mem_sort_gap_ix(pool_mgr) == ALLOC_OK) ? newGap : NULL;
+    
+}
+
+static alloc_status _remove_node(pool_mgr_pt pool_mgr, node_pt node) {
+    
+    // We're going to remove the node from the linked list, but first we must deal with relinking
+    // (just like a tyical linked-list node removal)
+    
+    // Rewire the node's previous connection
+    if(node->prev != NULL) {
+
+        // Rewire [n-1]'s next to [n+1]
+        node->prev->next = node->next;
+
+    } else {
+
+        // Node is the first element, set [n+1]'s previous to NULL
+        node->next->prev = NULL;
+
+    }
+
+    // Rewire the node's next connection
+    if(node->next != NULL) {
+
+        // Rewire [n+1]'s previous to [n-1]
+        node->next->prev = node->prev;
+
+    } else {
+
+        // Node is the last element, set [n-1]'s next to NULL
+        node->prev->next = NULL;
+
+    }
+    
+    // Get a reference to the last gap
+    const node_pt lastNode = &(pool_mgr->node_heap[pool_mgr->used_nodes - 1]);
+    
+    // Copy the end node to the position of the to be deleted node
+    *node = *lastNode;
+    
+    // Other nodes may have directly linked to the node we just moved
+    // (lastNode, now node) so we'll need to relink them
+    if(node->prev != NULL) {
+        
+        node->prev->next = node;
+        
+    }
+    
+    if(node->next != NULL) {
+        
+        node->next->prev = node;
+        
+    }
+    
+    // We'll also need to relink any gaps that pointed to this node
+    for(unsigned int i = 0; i < pool_mgr->used_gaps; ++i) {
+        
+        if(pool_mgr->gap_ix[i].node == lastNode) {
+            
+            // Gap pointed to the old node position, relink it to the new position
+            pool_mgr->gap_ix[i].node = node;
+            
+        }
+        
+    }
+    
+    // Our to-be-deleted node is now gone, decrement the used_nodes count
+    --(pool_mgr->used_nodes);
+    
+    // NOTE: This does leave a copy of the last node in the node table,
+    // however we're now considering that node as available space, not
+    // to be indexed, sorted and available for overriting.
+    
+    // Nevertheless, let's nuke it anyway (just in case)
+    lastNode->next = NULL;
+    lastNode->prev = NULL;
+    lastNode->allocated = 0;
+    lastNode->alloc_record.mem = NULL;
+    lastNode->alloc_record.size = 0;
+
+    return ALLOC_OK;
+    
+}
+
+static node_pt _add_node(pool_mgr_pt pool_mgr) {
+    
+    // Do we need to grab more space?
+    if(_mem_resize_node_heap(pool_mgr) != ALLOC_OK) {
+        
+        // Return NULL on failure to resize
+        return NULL;
+        
+    }
+    
+    // Increment used_nodes
+    ++(pool_mgr->used_nodes);
+    
+    // Get a reference to the new node we just "created"
+    const node_pt newNode = &(pool_mgr->node_heap[pool_mgr->used_nodes - 1]);
+    
+    // There's a chance this node's memory came from a realloc and contains
+    // garbage, let's nuke it (just in case)
+    
+    newNode->next = NULL;
+    newNode->prev = NULL;
+    newNode->allocated = 0;
+    newNode->alloc_record.mem = NULL;
+    newNode->alloc_record.size = 0;
+    
+    // OK now let's set it up
+    
+    
+    
+}
+
 
 alloc_status mem_init() {
     
@@ -295,7 +454,7 @@ alloc_status mem_pool_close(pool_pt pool) {
 
 alloc_pt mem_new_alloc(pool_pt pool, size_t size) {
     
-    const pool_mgr_pt poolManager = (pool_mgr_pt) pool;
+    const pool_mgr_pt pool_mgr = (pool_mgr_pt) pool;
 
     return NULL;
     
@@ -434,50 +593,46 @@ static alloc_status _mem_add_to_gap_ix(pool_mgr_pt pool_mgr, size_t size, node_p
     gap->node = node;
     gap->size = size;
     
+    // Mark node as used
+    node->allocated = 0;
+    
     // Resort gap table
     _mem_sort_gap_ix(pool_mgr);
+    
+    // Look above for gaps
+    for(unsigned int i = 0; i < pool_mgr->used_gaps; ++i) {
+        
+        // Does this gap end where we begin?
+        if(&(pool_mgr->gap_ix[i].node->alloc_record.mem) + pool_mgr->gap_ix[i].node->alloc_record.size == &(node->alloc_record.mem)) {
+            
+            // TODO: I have no fucking idea if this will work, esp. considering alignment
 
-    // We're going to remove the node from the linked list, but first we must deal with relinking
-    // (just like a tyical linked-list node removal)
-    
-    if(node->prev != NULL) {
-        
-        // Rewire [n-1]'s next to [n+1]
-        node->prev->next = node->next;
-        
-    } else {
-        
-        // Node is the first element, set [n+1]'s previous to NULL
-        node->next->prev = NULL;
-        
-    }
-    
-    if(node->next != NULL) {
-        
-        // Rewire [n+1]'s previous to [n-1]
-        node->next->prev = node->prev;
-        
-    } else {
-        
-        // Node is the last element, set [n-1]'s next to NULL
-        node->prev->next = NULL;
-        
-    }
-    
-    // Then we're going to take the last node (last position) and swap it into the hole
-    node = &(pool_mgr->node_heap[pool_mgr->used_nodes - 2]);
-    
-    // Deal with relinking
-    if(node->prev != NULL) {
-        node->prev->next = node;
-    }
-    
-    if(node->next != NULL) {
-        node->next->prev = node;
-    }
-    
-    --(pool_mgr->used_nodes);
+            // There's an adjacent gap above us, let's merge it
+            
+            // Remove this gap if it's adjacent to a gap
+            
+            
+            
 
+            // Expand previous gap
+            
+            // Also remove node
+            
+            // May be able to leave old node in place and just rewire
+            
+            break;
+            
+        }
+            
+        
+        
+    }
+    
+    
+    
+    
+
+   
     return ALLOC_OK;
     
 }
@@ -498,17 +653,72 @@ static alloc_status _mem_remove_from_gap_ix(pool_mgr_pt pool_mgr, size_t size, n
         
     }
     
-    // Remove the gap from the gap table
+    // Mark the node as active, set the size to that requested
     
-    // Create a new node and configure it
+    // Rewire the gap to a new node, representing the extra space
+    
+        // Add the new node to the node list
     
     return ALLOC_OK;
     
 }
 
+// Jacked a quick and dirty QuickSort implementation from
+// http://www.comp.dit.ie/rlawlor/Alg_DS/sorting/quickSort.c
+// I've written QuickSort so many fucking times, I don't feel the need to do it again
+
+// We'll need to modify this to work with the gap index...
+
+int partitionGap(gap_pt gaps, int l, int r) {
+    
+    int i = l, j = r + 1;
+    
+    gap_pt t;
+    gap_pt pivot;
+    
+    pivot = &(gaps[l]);
+    
+    while(1) {
+        
+        do ++i; while(gaps[i].size <= pivot->size && i <= r );
+        
+        do --j; while(gaps[j].size > pivot->size);
+        
+        if(i >= j) break;
+        
+        t = &(gaps[i]);
+        
+        gaps[i] = gaps[j];
+        gaps[j] = *t;
+        
+    }
+    
+    t = &gaps[l];
+    gaps[l] = gaps[j];
+    gaps[j] = *t;
+    
+    return j;
+    
+}
+
+void quickSortGap(gap_pt gaps, int l, int r) {
+    
+    if(l < r) {
+        
+        int j = partitionGap(gaps, l, r);
+        
+        quickSortGap(gaps, l, j - 1);
+        quickSortGap(gaps, j + 1, r);
+        
+    }
+    
+}
 
 static alloc_status _mem_sort_gap_ix(pool_mgr_pt pool_mgr) {
-
+    
+    // Sort the gap list, smallest sizes first
+    quickSortGap(pool_mgr->gap_ix, 0, pool_mgr->used_gaps - 1);
+    
     return ALLOC_OK;
     
 }
