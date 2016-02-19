@@ -3,32 +3,95 @@
 
 #include "mem_pool.h"
 
-int main(int argc, char *argv[]) {
+#define MEGABYTE * 1 * 1000 * 1000
 
-    printf("Testing C Language Programming Assignment\n");
+int main(int argc, char *argv[]) {
 
     mem_init();
     
-    pool_pt pool1 = mem_pool_open(1 * 1000 * 1000, BEST_FIT);
-    pool_pt pool2 = mem_pool_open(2 * 1000 * 1000, BEST_FIT);
-    pool_pt pool3 = mem_pool_open(3 * 1000 * 1000, BEST_FIT);
-    pool_pt pool4 = mem_pool_open(4 * 1000 * 1000, BEST_FIT);
-    pool_pt pool5 = mem_pool_open(5 * 1000 * 1000, BEST_FIT);
-    pool_pt pool6 = mem_pool_open(6 * 1000 * 1000, BEST_FIT);
-    pool_pt pool7 = mem_pool_open(7 * 1000 * 1000, BEST_FIT);
-    pool_pt pool8 = mem_pool_open(8 * 1000 * 1000, BEST_FIT);
-    pool_pt pool9 = mem_pool_open(9 * 1000 * 1000, BEST_FIT);
-    pool_pt pool10 = mem_pool_open(10 * 1000 * 1000, BEST_FIT);
+    pool_pt pool = mem_pool_open(100 * 1000 * 1000, BEST_FIT);
     
-    mem_pool_close(pool4);
-    mem_pool_close(pool1);
-    mem_pool_close(pool10);
-    mem_pool_close(pool2);
+    print_pool(pool);
     
-    pool_pt pool11 = mem_pool_open(11 * 1000 * 1000, BEST_FIT);
-    pool_pt pool12 = mem_pool_open(12 * 1000 * 1000, BEST_FIT);
-    pool_pt pool13 = mem_pool_open(13 * 1000 * 1000, BEST_FIT);
-    pool_pt pool14 = mem_pool_open(14 * 1000 * 1000, BEST_FIT);
+    alloc_pt alloc1 = mem_new_alloc(pool, 10 MEGABYTE);
+    
+    print_pool(pool);
+    
+    alloc_pt alloc2 = mem_new_alloc(pool, 12 MEGABYTE);
+    
+    print_pool(pool);
+    
+    alloc_pt alloc3 = mem_new_alloc(pool, 2 MEGABYTE);
+    
+    print_pool(pool);
+    
+    alloc_pt alloc4 = mem_new_alloc(pool, 30 MEGABYTE);
+    
+    print_pool(pool);
+    
+    alloc_pt alloc5 = mem_new_alloc(pool, 4 MEGABYTE);
+    
+    print_pool(pool);
+    
+    alloc_pt alloc6 = mem_new_alloc(pool, 1 MEGABYTE);
+    
+    print_pool(pool);
+    
+    alloc_pt alloc7 = mem_new_alloc(pool, 12 MEGABYTE);
+    
+    print_pool(pool);
+    
+    alloc_pt alloc8 = mem_new_alloc(pool, 9 MEGABYTE);
+    
+    print_pool(pool);
+    
+    alloc_pt alloc9 = mem_new_alloc(pool, 3 MEGABYTE);
+    
+    print_pool(pool);
+    
+    alloc_pt alloc10 = mem_new_alloc(pool, 1 MEGABYTE);
+    
+    print_pool(pool);
+    
+    mem_del_alloc(pool, alloc7);
+    
+    print_pool(pool);
+    
+    mem_del_alloc(pool, alloc4);
+    
+    print_pool(pool);
+    
+    mem_del_alloc(pool, alloc10);
+    
+    print_pool(pool);
+    
+    mem_del_alloc(pool, alloc9);
+    
+    print_pool(pool);
+    
+    mem_del_alloc(pool, alloc8);
+    
+    print_pool(pool);
+    
+    mem_del_alloc(pool, alloc5);
+    
+    print_pool(pool);
+    
+    mem_del_alloc(pool, alloc1);
+    
+    print_pool(pool);
+    
+    mem_del_alloc(pool, alloc6);
+    
+    print_pool(pool);
+    
+    mem_del_alloc(pool, alloc3);
+    
+    print_pool(pool);
+    
+    mem_del_alloc(pool, alloc2);
+    
+    print_pool(pool);
     
     mem_free();
     
