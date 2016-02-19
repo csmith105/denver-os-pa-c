@@ -402,7 +402,9 @@ pool_pt mem_pool_open(size_t size, alloc_policy policy) {
     if(pool_store == NULL) {
         
         // I'm going to choose to go ahead and initialize it here
-        mem_init();
+        if(mem_init() != ALLOC_OK) {
+            return NULL;
+        }
         
     }
     
