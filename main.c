@@ -53,19 +53,7 @@ int main(int argc, char *argv[]) {
     
     print_pool(pool);
     
-    mem_del_alloc(pool, alloc7);
-    
-    print_pool(pool);
-    
-    mem_del_alloc(pool, alloc4);
-    
-    print_pool(pool);
-    
-    mem_del_alloc(pool, alloc10);
-    
-    print_pool(pool);
-    
-    mem_del_alloc(pool, alloc9);
+    mem_del_alloc(pool, alloc6);
     
     print_pool(pool);
     
@@ -73,15 +61,15 @@ int main(int argc, char *argv[]) {
     
     print_pool(pool);
     
+    mem_del_alloc(pool, alloc7);
+    
+    print_pool(pool);
+    
     mem_del_alloc(pool, alloc5);
     
     print_pool(pool);
     
-    mem_del_alloc(pool, alloc1);
-    
-    print_pool(pool);
-    
-    mem_del_alloc(pool, alloc6);
+    mem_del_alloc(pool, alloc4);
     
     print_pool(pool);
     
@@ -90,6 +78,18 @@ int main(int argc, char *argv[]) {
     print_pool(pool);
     
     mem_del_alloc(pool, alloc2);
+    
+    print_pool(pool);
+    
+    mem_del_alloc(pool, alloc1);
+    
+    print_pool(pool);
+    
+    mem_del_alloc(pool, alloc10);
+    
+    print_pool(pool);
+    
+    mem_del_alloc(pool, alloc9);
     
     print_pool(pool);
     

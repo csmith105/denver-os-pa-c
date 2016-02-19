@@ -62,7 +62,6 @@ static pool_mgr_pt * pool_store = NULL;
 static unsigned pool_store_size = 0;
 static unsigned pool_store_capacity = 0;
 
-
 /* Forward declarations of static functions */
 static alloc_status _mem_resize_pool_store();
 static alloc_status _mem_resize_node_heap(pool_mgr_pt pool_mgr);
@@ -71,6 +70,7 @@ static alloc_status _mem_add_to_gap_ix(pool_mgr_pt pool_mgr, size_t size, node_p
 static alloc_status _mem_remove_from_gap_ix(pool_mgr_pt pool_mgr, size_t size, node_pt node);
 static alloc_status _mem_sort_gap_ix(pool_mgr_pt pool_mgr);
 
+// TESTED - GOOD
 // Simply removes a gap from the gap array, no holes, resorts
 static alloc_status _remove_gap(pool_mgr_pt pool_mgr, gap_pt gap) {
     
@@ -99,6 +99,7 @@ static alloc_status _remove_gap(pool_mgr_pt pool_mgr, gap_pt gap) {
     
 }
 
+// TESTED - HAS ISSUES (loses alloc records)
 // Simply removes a node from the node array, no holes, handles relinking
 static alloc_status _remove_node(pool_mgr_pt pool_mgr, node_pt node) {
     
@@ -181,33 +182,86 @@ static alloc_status _remove_node(pool_mgr_pt pool_mgr, node_pt node) {
     
 }
 
+// TESTED - HAS ISSUES (merging)
 // Creates a new gap from an existing node
-static gap_pt _add_gap(pool_mgr_pt pool_mgr, node_pt node) {
+static alloc_status _add_gap(pool_mgr_pt pool_mgr, node_pt node) {
+    
+    gap_pt gap = NULL;
     
     // Look above for gaps (gap merging)
+    
+    // Get the ending address of this node
+    const char * nodeEndingAddress = (((char *) node->alloc_record.mem) + node->alloc_record.size);
+    
     for(unsigned int i = 0; i < pool_mgr->used_gaps; ++i) {
         
-        // Calculate the position in memory where the currently selected gap ends
+        printf("Merge above, comparing %p with %p\r\n", nodeEndingAddress, pool_mgr->gap_ix[i].node->alloc_record.mem);
         
-        // Start with the address of the currently selected gap, add it's size as an offset
-        const void * endingLocation = &(pool_mgr->gap_ix[i].node->alloc_record.mem) + pool_mgr->gap_ix[i].size;
-
-        // Does this gap end where we begin?
-        if(endingLocation == &(node->alloc_record.mem)) {
+        // Does this gap begin where the node ends?
+        if(nodeEndingAddress == pool_mgr->gap_ix[i].node->alloc_record.mem) {
             
             // There's an adjacent gap above us, let's use it
+            
+            printf("Merging above gap.\r\n");
+            
+            // Remove the node attached to the adjacent gap
+            _remove_node(pool_mgr, pool_mgr->gap_ix[i].node);
+            
+            // Set the passed in node to gap
+            pool_mgr->gap_ix[i].node = node;
             
             // Expand previous gap
             pool_mgr->gap_ix[i].size += node->alloc_record.size;
             pool_mgr->gap_ix[i].node->alloc_record.size = pool_mgr->gap_ix[i].size;
             
-            // Remove the node we were passed
-            _remove_node(pool_mgr, node);
+            // Store the gap for a later return
+            gap = &(pool_mgr->gap_ix[i]);
             
-            return &(pool_mgr->gap_ix[i]);
+            break;
             
         }
         
+    }
+    
+    // Look below for gaps (gap merging)
+    
+    /*for(unsigned int i = 0; i < pool_mgr->used_gaps; ++i) {
+        
+        // Get the ending address of this gap
+        const char * gapEndingAddress = (((char *) pool_mgr->gap_ix[i].node->alloc_record.mem) + pool_mgr->gap_ix[i].node->alloc_record.size);
+        
+        printf("Merge below, comparing %p with %p\r\n", node->alloc_record.mem, pool_mgr->gap_ix[i].node->alloc_record.mem);
+        
+        // Does this gap begin where the node ends?
+        if(node->alloc_record.mem == gapEndingAddress) {
+            
+            // There's an adjacent gap below us, let's use it
+            
+            printf("Merging below gap.\r\n");
+            
+            // Expand previous gap
+            pool_mgr->gap_ix[i].size += node->alloc_record.size;
+            pool_mgr->gap_ix[i].node->alloc_record.size = pool_mgr->gap_ix[i].size;
+            
+            // Remove the node passed in
+            _remove_node(pool_mgr, node);
+            
+            if(gap != NULL) {
+                
+                _remove_gap(pool_mgr, gap);
+                
+                return ALLOC_OK;
+                
+            }
+            
+            break;
+            
+        }
+        
+    }*/
+    
+    if(gap != NULL) {
+        return ALLOC_OK;
     }
     
     // No gap to merge, create a new one
@@ -215,8 +269,8 @@ static gap_pt _add_gap(pool_mgr_pt pool_mgr, node_pt node) {
     // Do we need to grab more space?
     if(_mem_resize_gap_ix(pool_mgr) != ALLOC_OK) {
         
-        // Return NULL on failure to resize
-        return NULL;
+        // Return ALLOC_FAIL on failure to resize
+        return ALLOC_FAIL;
         
     }
     
@@ -231,10 +285,11 @@ static gap_pt _add_gap(pool_mgr_pt pool_mgr, node_pt node) {
     newGap->node = node;
     
     // We've altered the gap list, so let's resort it
-    return (_mem_sort_gap_ix(pool_mgr) == ALLOC_OK) ? newGap : NULL;
+    return _mem_sort_gap_ix(pool_mgr);
     
 }
 
+// TESTED - GOOD
 // Simply adds a node to the end of the node array, no holes, handles relinking
 static node_pt _add_node(pool_mgr_pt pool_mgr) {
     
@@ -294,9 +349,12 @@ static node_pt _add_node(pool_mgr_pt pool_mgr) {
     
 }
 
-// NOT WORKING PROPERLY
+// TESTED - GOOD
 // Splits a given gap into an allocated node and a gap node
 static alloc_status _convert_gap_to_node_and_gap(pool_mgr_pt pool_mgr, node_pt node, gap_pt gap) {
+
+    //printf("Before Node\t%p\r\n", node->alloc_record.mem);
+    //printf("Before Gap\t%p\r\n", gap->node->alloc_record.mem);
     
     // What about the case where the gap is just large enough?
     if(gap->size == node->alloc_record.size) {
@@ -316,11 +374,16 @@ static alloc_status _convert_gap_to_node_and_gap(pool_mgr_pt pool_mgr, node_pt n
     // The provided gap/node can be reused to represent the extra left over space
     // however it will need a new node
     
+    // Set the provided node to the correct memory
+    node->alloc_record.mem = gap->node->alloc_record.mem;
+    
     // Calculate new gap/node size
     gap->size = gap->node->alloc_record.size = gap->size - node->alloc_record.size;
     
-    // Point the new node at the correct starting memory
-    gap->node->alloc_record.mem = (void *) &(gap->node->alloc_record.mem) + node->alloc_record.size;
+    // Point the new (gap) node at the correct starting memory
+    char * whatever = (char *) gap->node->alloc_record.mem;
+    size_t offset = node->alloc_record.size;
+    gap->node->alloc_record.mem = (whatever + offset);
     
     // Node is NOT allocated
     gap->node->allocated = 0;
@@ -331,8 +394,8 @@ static alloc_status _convert_gap_to_node_and_gap(pool_mgr_pt pool_mgr, node_pt n
     // But not allocated
     gap->node->allocated = 0;
     
-    // Set the provided node to the correct memory
-    gap->node->alloc_record.mem = gap->node->alloc_record.mem;
+    //printf("After Node\t%p\r\n", node->alloc_record.mem);
+    //printf("After Gap\t%p\r\n", gap->node->alloc_record.mem);
     
     return ALLOC_OK;
     
@@ -569,7 +632,7 @@ void print_pool(pool_pt pool) {
     
     for (unsigned j = 0; j < pool_mgr->used_nodes; ++j) {
         
-        printf("N%d:\t%d\t", j, (int) pool_mgr->node_heap[j].alloc_record.size);
+        printf("N%d:\t%p\t%d\t", j, (void *) pool_mgr->node_heap[j].alloc_record.mem, (int) pool_mgr->node_heap[j].alloc_record.size);
         
         if(pool_mgr->node_heap[j].allocated) {
             printf("\tAllocated");
@@ -590,13 +653,14 @@ void print_pool(pool_pt pool) {
     printf("\r\n");
     
     for (unsigned j = 0; j < pool_mgr->used_gaps; ++j) {
-        printf("G%d:\t%d\r\n", j, (int) pool_mgr->gap_ix[j].size);
+        printf("G%d:\t%p\t%d\r\n", j, (void *) pool_mgr->gap_ix[j].node->alloc_record.mem, (int) pool_mgr->gap_ix[j].size);
     }
     
     printf("\r\n");
     
 }
 
+// TESTED - GOOD
 // Allocates a chunk of memory
 alloc_pt mem_new_alloc(pool_pt pool, size_t size) {
     
@@ -617,10 +681,15 @@ alloc_pt mem_new_alloc(pool_pt pool, size_t size) {
     // Steal some memory from the gap table
     const alloc_status status = _mem_remove_from_gap_ix(pool_mgr, size, node);
     
+    if(status != ALLOC_OK) {
+        printf("Failed to alloc memory!\r\n");
+    }
+    
     return (status == ALLOC_OK) ? &(node->alloc_record) : NULL;
     
 }
 
+// TESTED - GOOD
 // Deallocates a chunk of memory
 alloc_status mem_del_alloc(pool_pt pool, alloc_pt alloc) {
 
@@ -757,10 +826,7 @@ static alloc_status _mem_add_to_gap_ix(pool_mgr_pt pool_mgr, size_t size, node_p
     // Mark node as gap
     node->allocated = 0;
     
-    // Get a new gap
-    const gap_pt gap = _add_gap(pool_mgr, node);
-   
-    return (gap != NULL) ? ALLOC_OK : ALLOC_FAIL;
+    return _add_gap(pool_mgr, node);
     
 }
 
