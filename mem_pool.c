@@ -63,6 +63,8 @@ static unsigned pool_store_size = 0;
 static unsigned pool_store_capacity = 0;
 
 /* Forward declarations of static functions */
+/*                                          */
+/********************************************/
 static alloc_status _mem_resize_pool_store();
 static alloc_status _mem_resize_node_heap(pool_mgr_pt pool_mgr);
 static alloc_status _mem_resize_gap_ix(pool_mgr_pt pool_mgr);
