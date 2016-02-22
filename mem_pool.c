@@ -206,7 +206,7 @@ static alloc_status _add_gap(pool_mgr_pt pool_mgr, node_pt node) {
             
             // There's an adjacent gap above us, let's use it
             
-            printf("Merging above gap.\r\n");
+            //printf("Merging above gap.\r\n");
             
             // Remove the node attached to the adjacent gap
             _remove_node(pool_mgr, pool_mgr->gap_ix[i].node);
@@ -241,7 +241,7 @@ static alloc_status _add_gap(pool_mgr_pt pool_mgr, node_pt node) {
             
             // There's an adjacent gap below us, let's use it
             
-            printf("Merging below gap.\r\n");
+            //printf("Merging below gap.\r\n");
             
             // Expand previous gap
             pool_mgr->gap_ix[i].size += node->alloc_record.size;
