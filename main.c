@@ -57,7 +57,7 @@ int main(int argc, char *argv[]) {
     
     alloc_pt alloc10 = mem_new_alloc(pool, 1 MEGABYTE);
     
-    print_pool(pool);
+    print_pool2(pool);
     
     mem_del_alloc(pool, alloc6);
     
