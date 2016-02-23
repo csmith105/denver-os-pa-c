@@ -53,8 +53,6 @@ typedef enum _alloc_status {
 
 void print_pool(pool_pt pool);
 
-void print_pool2(pool_pt pool);
-
 alloc_status mem_init();
 
 alloc_status mem_free();

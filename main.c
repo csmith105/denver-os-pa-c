@@ -6,9 +6,6 @@
 
 /* forward declarations */
 void print_pool(pool_pt pool);
-void print_pool2(pool_pt pool);
-
-#define MEGABYTE * 1 * 1000 * 1000
 
 /* main */
 int main(int argc, char *argv[]) {
