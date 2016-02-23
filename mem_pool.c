@@ -233,6 +233,7 @@ static alloc_status _add_gap(pool_mgr_pt pool_mgr, node_pt node) {
             
             // Set the passed in node to gap
             pool_mgr->gap_ix[i].node = node;
+            node->allocated = 0;
             
             // Expand previous gap
             pool_mgr->gap_ix[i].size += node->alloc_record.size;
@@ -266,6 +267,7 @@ static alloc_status _add_gap(pool_mgr_pt pool_mgr, node_pt node) {
             // Expand previous gap
             pool_mgr->gap_ix[i].size += node->alloc_record.size;
             pool_mgr->gap_ix[i].node->alloc_record.size = pool_mgr->gap_ix[i].size;
+            pool_mgr->gap_ix[i].node->allocated = 0;
             
             // Remove the node passed in
             _remove_node(pool_mgr, node);
@@ -307,6 +309,8 @@ static alloc_status _add_gap(pool_mgr_pt pool_mgr, node_pt node) {
     // Setup the new gap
     newGap->size = node->alloc_record.size;
     newGap->node = node;
+    
+    node->allocated = 0;
     
     // We've altered the gap list, so let's resort it
     return _mem_sort_gap_ix(pool_mgr);
@@ -641,8 +645,8 @@ pool_pt mem_pool_open(size_t size, alloc_policy policy) {
     node->alloc_record.size = pool_mgr->pool.alloc_size;
     node->next = NULL;
     node->prev = NULL;
-    node->used = 0;
-    node->allocated = 0;
+    node->used = 1;
+    node->allocated = 1;
     
     // initialize top node of gap index
     // Add the gap
@@ -877,16 +881,16 @@ alloc_status mem_del_alloc(pool_pt pool, alloc_pt alloc) {
     
 }
 
-// UNTESTED - CHECKED
+// TESTED - GOOD - CHECKED
 // Allocates a dynamic array. Caller responsible for releasing.
-void mem_inspect_pool(pool_pt pool, pool_segment_pt segments, unsigned *num_segments) {
+void mem_inspect_pool(pool_pt pool, pool_segment_pt *segments, unsigned *num_segments) {
     
     // get the mgr from the pool
     // Upcast the pool pointer to a pool_mgr pointer
     const pool_mgr_pt pool_mgr = (pool_mgr_pt) pool;
     
     // allocate the segments array with size == used_nodes
-    segments = calloc(pool_mgr->used_nodes, sizeof(pool_segment_t));
+    *segments = calloc(pool_mgr->used_nodes, sizeof(pool_segment_t));
     
     // check successful
     if(segments == NULL) {
@@ -896,7 +900,7 @@ void mem_inspect_pool(pool_pt pool, pool_segment_pt segments, unsigned *num_segm
     // loop through the node heap and the segments array
     int currentSegment = 0;
     
-    for(int i = 0; i < pool_mgr->total_nodes; ++i) {
+    for(int i = 0; i < pool_mgr->used_nodes; ++i) {
         
         // Skip unused nodes
         if(pool_mgr->node_heap[i].used == 0) {
@@ -904,14 +908,15 @@ void mem_inspect_pool(pool_pt pool, pool_segment_pt segments, unsigned *num_segm
         }
         
         // for each node, write the size and allocated in the segment
-        segments[currentSegment].size = pool_mgr->node_heap[i].alloc_record.size;
-        segments[currentSegment].allocated = pool_mgr->node_heap[i].allocated;
+        (*segments)[currentSegment].size = pool_mgr->node_heap[i].alloc_record.size;
+        (*segments)[currentSegment].allocated = pool_mgr->node_heap[i].allocated;
         
         ++currentSegment;
         
     }
     
     // "return" the values:
+    *num_segments = currentSegment;
     return;
     
 }

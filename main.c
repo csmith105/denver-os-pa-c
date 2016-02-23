@@ -13,93 +13,62 @@ void print_pool2(pool_pt pool);
 /* main */
 int main(int argc, char *argv[]) {
 
-    mem_init();
+    const unsigned POOL_SIZE = 1000000;
     
-    pool_pt pool = mem_pool_open(100 MEGABYTE, BEST_FIT);
+    pool_pt pool = NULL;
     
-    print_pool2(pool);
+    alloc_status status = mem_init();
+    assert(status == ALLOC_OK);
+    pool = mem_pool_open(POOL_SIZE, FIRST_FIT);
+    assert(pool);
     
-    alloc_pt alloc1 = mem_new_alloc(pool, 10 MEGABYTE);
+    /*
+     * Basic allocation scenario:
+     *
+     * 1. Pool starts out as a single gap.
+     * 2. Allocate 100. That will be at the top. The rest is a gap.
+     * 3. Allocate 1000. That will be underneath it. The rest is a gap.
+     * 4. Deallocate the 100 allocation. Now gaps on both sides of 1000.
+     * 4. Deallocate the 1000 allocation. Pool is again one single gap.
+     */
     
-    print_pool2(pool);
+    // Correct
+    print_pool(pool);
     
-    alloc_pt alloc2 = mem_new_alloc(pool, 12 MEGABYTE);
+    // + alloc-0
+    alloc_pt alloc0 = mem_new_alloc(pool, 100);
+    assert(alloc0);
     
-    print_pool2(pool);
+    print_pool(pool);
     
-    alloc_pt alloc3 = mem_new_alloc(pool, 2 MEGABYTE);
+    // + alloc-1
+    alloc_pt alloc1 = mem_new_alloc(pool, 1000);
+    assert(alloc1);
     
-    print_pool2(pool);
+    print_pool(pool);
     
-    alloc_pt alloc4 = mem_new_alloc(pool, 30 MEGABYTE);
+    // - alloc-0
+    status = mem_del_alloc(pool, alloc0);
+    assert(status == ALLOC_OK);
     
-    print_pool2(pool);
+    print_pool(pool);
     
-    alloc_pt alloc5 = mem_new_alloc(pool, 4 MEGABYTE);
+    // - alloc-1
+    status = mem_del_alloc(pool, alloc1);
+    assert(status == ALLOC_OK);
     
-    print_pool2(pool);
+    print_pool(pool);
     
-    alloc_pt alloc6 = mem_new_alloc(pool, 1 MEGABYTE);
+    /*
+     * End of allocation scenario. Clean up.
+     */
     
-    print_pool2(pool);
+    status = mem_pool_close(pool);
+    assert(status == ALLOC_OK);
+    status = mem_free();
     
-    alloc_pt alloc7 = mem_new_alloc(pool, 12 MEGABYTE);
-    
-    print_pool2(pool);
-    
-    alloc_pt alloc8 = mem_new_alloc(pool, 9 MEGABYTE);
-    
-    print_pool2(pool);
-    
-    alloc_pt alloc9 = mem_new_alloc(pool, 3 MEGABYTE);
-    
-    print_pool2(pool);
-    
-    alloc_pt alloc10 = mem_new_alloc(pool, 1 MEGABYTE);
-    
-    print_pool2(pool);
-    
-    mem_del_alloc(pool, alloc6);
-    
-    print_pool2(pool);
-    
-    mem_del_alloc(pool, alloc8);
-    
-    print_pool2(pool);
-    
-    mem_del_alloc(pool, alloc7);
-    
-    print_pool2(pool);
-    
-    mem_del_alloc(pool, alloc5);
-    
-    print_pool2(pool);
-    
-    mem_del_alloc(pool, alloc4);
-    
-    print_pool2(pool);
-    
-    mem_del_alloc(pool, alloc3);
-    
-    print_pool2(pool);
-    
-    mem_del_alloc(pool, alloc2);
-    
-    print_pool2(pool);
-    
-    mem_del_alloc(pool, alloc1);
-    
-    print_pool2(pool);
-    
-    mem_del_alloc(pool, alloc10);
-    
-    print_pool2(pool);
-    
-    mem_del_alloc(pool, alloc9);
-    
-    print_pool2(pool);
-    
-    mem_free();
+    printf("status = %d\n", status);
+    assert(status == ALLOC_OK);
     
     return 0;
     
@@ -110,20 +79,19 @@ void print_pool(pool_pt pool) {
     pool_segment_pt segs = NULL;
     
     unsigned size = 0;
-
+    
     assert(pool);
-
-    mem_inspect_pool(pool, segs, &size);
-
+    
+    mem_inspect_pool(pool, &segs, &size);
+    
     assert(segs);
     assert(size);
-
-    for(unsigned u = 0; u < size; ++u) {
+    
+    for (unsigned u = 0; u < size; u ++)
         printf("%10lu - %s\n", (unsigned long) segs[u].size, (segs[u].allocated) ? "alloc" : "gap");
-    }
     
     free(segs);
-
+    
     printf("\n");
     
 }
