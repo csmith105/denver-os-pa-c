@@ -487,7 +487,7 @@ pool_pt mem_pool_open(size_t size, alloc_policy policy) {
     
     // Allocate a new mem pool_mgr
     // Create the pool
-    pool_mgr_pt pool_mgr = calloc(1, sizeof(pool_mgr_t));
+    pool_mgr_pt pool_mgr = (pool_mgr_pt) calloc(1, sizeof(pool_mgr_t));
     
     // Check success, on error return null
     // Did the calloc call succeed?
@@ -508,7 +508,7 @@ pool_pt mem_pool_open(size_t size, alloc_policy policy) {
     
     // Allocate a new memory pool
     // Attempt to allocate the size requested
-    pool_mgr->pool.mem = malloc(size);
+    pool_mgr->pool.mem = (char*) malloc(size);
     
     // check success, on error deallocate mgr and return null
     // Did the malloc call succeed?
@@ -523,7 +523,7 @@ pool_pt mem_pool_open(size_t size, alloc_policy policy) {
     }
     
     // allocate a new node heap
-    pool_mgr->node_heap = calloc(MEM_NODE_HEAP_INIT_CAPACITY, sizeof(node_t));
+    pool_mgr->node_heap = (node_pt) calloc(MEM_NODE_HEAP_INIT_CAPACITY, sizeof(node_t));
     pool_mgr->total_nodes = MEM_NODE_HEAP_INIT_CAPACITY;
     pool_mgr->used_nodes = 0;
     
@@ -540,7 +540,7 @@ pool_pt mem_pool_open(size_t size, alloc_policy policy) {
     }
     
     // allocate a new gap index
-    pool_mgr->gap_ix = calloc(MEM_GAP_IX_INIT_CAPACITY, sizeof(gap_t));
+    pool_mgr->gap_ix = (gap_pt) calloc(MEM_GAP_IX_INIT_CAPACITY, sizeof(gap_t));
     pool_mgr->gap_ix_capacity = MEM_GAP_IX_INIT_CAPACITY;
     
     // check success, on error deallocate mgr/pool/heap and return null
@@ -842,7 +842,7 @@ void mem_inspect_pool(pool_pt pool, pool_segment_pt *segments, unsigned *num_seg
     const pool_mgr_pt pool_mgr = (pool_mgr_pt) pool;
     
     // allocate the segments array with size == used_nodes
-    *segments = calloc(pool_mgr->used_nodes, sizeof(pool_segment_t));
+    *segments = (pool_segment_pt) calloc(pool_mgr->used_nodes, sizeof(pool_segment_t));
     
     // check successful
     if(segments == NULL) {
