@@ -132,8 +132,7 @@ static alloc_status _remove_node(pool_mgr_pt pool_mgr, node_pt node) {
     // just mark the node as not used
     node->used = 0;
     
-    /*// We're going to remove the node from the linked list, but first we must deal with relinking
-    // (just like a tyical linked-list node removal)
+    // Remove the node from the linked list
     
     // Rewire the node's previous connection
     if(node->prev != NULL) {
@@ -160,52 +159,6 @@ static alloc_status _remove_node(pool_mgr_pt pool_mgr, node_pt node) {
         node->prev->next = NULL;
         
     }
-    
-    // Get a reference to the last gap
-    const node_pt lastNode = &(pool_mgr->node_heap[pool_mgr->used_nodes - 1]);
-    
-    // Copy the end node to the position of the to be deleted node
-    *node = *lastNode;
-    
-    // Other nodes may have directly linked to the node we just moved
-    // (lastNode, now node) so we'll need to relink them
-    if(node->prev != NULL) {
-        
-        node->prev->next = node;
-        
-    }
-    
-    if(node->next != NULL) {
-        
-        node->next->prev = node;
-        
-    }
-    
-    // We'll also need to relink any gaps that pointed to this node
-    for(unsigned int i = 0; i < pool_mgr->used_gaps; ++i) {
-        
-        if(pool_mgr->gap_ix[i].node == lastNode) {
-            
-            // Gap pointed to the old node position, relink it to the new position
-            pool_mgr->gap_ix[i].node = node;
-            
-        }
-        
-    }
-    
-    // Our to-be-deleted node is now gone, decrement the used_nodes count
-    --(pool_mgr->used_nodes);
-    
-    // NOTE: This does leave a copy of the last node in the node table,
-    // however we're now considering that node as available space, not
-    // to be indexed, sorted and available for overriting.
-    
-    // Nevertheless, let's nuke it anyway (just in case)
-    lastNode->next = NULL;
-    lastNode->prev = NULL;
-    lastNode->allocated = 0;
-    lastNode->alloc_record.mem = NULL;
-    lastNode->alloc_record.size = 0;*/
     
     return ALLOC_OK;
     
@@ -385,54 +338,55 @@ static node_pt _add_node(pool_mgr_pt pool_mgr) {
     
 }
 
-// TESTED - GOOD
-static alloc_status _convert_gap_to_node_and_gap(pool_mgr_pt pool_mgr, node_pt node, gap_pt gap) {
+// TESTED - GOOD - DEVIATED
+node_pt _convert_gap_to_node_and_gap(pool_mgr_pt pool_mgr, gap_pt gap, size_t size) {
     
     //printf("Before Node\t%p\r\n", node->alloc_record.mem);
     //printf("Before Gap\t%p\r\n", gap->node->alloc_record.mem);
     
     // What about the case where the gap is just large enough?
-    if(gap->size == node->alloc_record.size) {
+    if(gap->size == size) {
         
         // Special case, the new node exactly fits the provided space
+        const node_pt node = gap->node;
         
-        // Set the provided node to the correct memory
-        node->alloc_record.mem = gap->node->alloc_record.mem;
+        node->allocated = 1;
         
-        // Remove the old gap
-        return _remove_gap(pool_mgr, gap);
+        // Remove the associated gap
+        _remove_gap(pool_mgr, gap);
+        
+        // Return the node
+        return node;
         
     }
     
-    // The provided node should already be in the node heap
+    // Use the existing node for allocated space
+    const node_pt allocatedNode = gap->node;
     
-    // The provided gap/node can be reused to represent the extra left over space
-    // however it will need a new node
+    // Setup allocatedNode
+    allocatedNode->allocated = 1;
+    allocatedNode->used = 1;
     
-    // Set the provided node to the correct memory
-    node->alloc_record.mem = gap->node->alloc_record.mem;
+    // Generate a new node to represent the gap
+    gap->node = _add_node(pool_mgr);
+    
+    // Set the existing node to the correct memory
+    allocatedNode->alloc_record.size = size;
     
     // Calculate new gap/node size
-    gap->size = gap->node->alloc_record.size = gap->size - node->alloc_record.size;
+    gap->size = gap->node->alloc_record.size = gap->size - size;
     
     // Point the new (gap) node at the correct starting memory
-    char * whatever = (char *) gap->node->alloc_record.mem;
-    size_t offset = node->alloc_record.size;
-    gap->node->alloc_record.mem = (whatever + offset);
+    gap->node->alloc_record.mem = ((char *) allocatedNode->alloc_record.mem) + size;
     
-    // Node is NOT allocated
+    // Setup gap->node
     gap->node->allocated = 0;
-    
-    // Node is in use
     gap->node->used = 1;
-    
-    // But not allocated
-    gap->node->allocated = 0;
     
     //printf("After Node\t%p\r\n", node->alloc_record.mem);
     //printf("After Gap\t%p\r\n", gap->node->alloc_record.mem);
     
-    return ALLOC_OK;
+    return allocatedNode;
     
 }
 
@@ -689,6 +643,7 @@ alloc_status mem_pool_close(pool_pt pool) {
 alloc_pt mem_new_alloc(pool_pt pool, size_t size) {
     
     // Get pool_mgr from pool by casting the pointer to (pool_mgr_pt)
+    // get mgr from pool by casting the pointer to (pool_mgr_pt)
     const pool_mgr_pt pool_mgr = (pool_mgr_pt) pool;
     
     // Check if any gaps, return null if none
@@ -696,15 +651,15 @@ alloc_pt mem_new_alloc(pool_pt pool, size_t size) {
         return NULL;
     }
     
-    // Expand heap node, if necessary, quit on error
+    // expand heap node, if necessary, quit on error
+    // check used nodes fewer than total nodes, quit on error
+    // get a node for allocation:
+    // Get a new node
     
-    
-    // Check used nodes fewer than total nodes, quit on error
-    
-    
-    // Get a node for allocation:
     // if FIRST_FIT, then find the first sufficient node in the node heap
+    
     // if BEST_FIT, then find the first sufficient node in the gap index
+    
     // check if node found
     // update metadata (num_allocs, alloc_size)
     // calculate the size of the remaining gap, if any
@@ -721,26 +676,75 @@ alloc_pt mem_new_alloc(pool_pt pool, size_t size) {
     //   check if successful
     // return allocation record by casting the node to (alloc_pt)
     
-    // Get a new node
-    const node_pt node = _add_node(pool_mgr);
-    
-    if(node == NULL) {
-        return NULL;
-    }
-    
     // Configure the node
-    node->used = 1;
-    node->allocated = 1;
-    node->alloc_record.size = size;
     
     // Steal some memory from the gap table
-    if(_mem_remove_from_gap_ix(pool_mgr, size, node) == ALLOC_OK) {
+    
+    // Find a block of memory from the gap table
+    node_pt newNode = NULL;
+    if(pool_mgr->pool.policy == FIRST_FIT) {
+        
+        // Look through the gaps, choose the first one (closest fitting)
+        for(unsigned i = 0; i < pool_mgr->pool.num_gaps; ++i) {
+            
+            // Is this gap large enough?
+            if(pool_mgr->gap_ix[i].size >= size) {
+                
+                // We found one
+                newNode = _convert_gap_to_node_and_gap(pool_mgr, &(pool_mgr->gap_ix[i]), size);
+                
+            }
+            
+        }
+        
+    }
+    
+    if(pool_mgr->pool.policy == BEST_FIT) {
+        
+        // Look through all the gaps, find the best one (closest fitting)
+        gap_pt best = NULL;
+        
+        for(unsigned i = 0; i < pool_mgr->pool.num_gaps; ++i) {
+            
+            // Is this gap large enough?
+            if(pool_mgr->gap_ix[i].size >= size) {
+                
+                // We found one, is it smaller than best?
+                if(best != NULL) {
+                    
+                    if(pool_mgr->gap_ix[i].size < best->size) {
+                        
+                        // This gap is large enough, and smaller than best, it's now the new best
+                        best =  &(pool_mgr->gap_ix[i]);
+                        
+                    }
+                    
+                } else {
+                    
+                    // best is unpopulated, set it to this gap
+                    best = &(pool_mgr->gap_ix[i]);
+                    
+                }
+                
+            }
+            
+        }
+        
+        if(best != NULL) {
+            
+            newNode = _convert_gap_to_node_and_gap(pool_mgr, best, size);
+            
+        }
+        
+    }
+    
+    if(newNode) {
         
         ++(pool_mgr->pool.num_allocs);
         
         pool_mgr->pool.total_size += size;
         
-        return &(node->alloc_record);
+        return &(newNode->alloc_record);
         
     } else {
         
@@ -847,6 +851,20 @@ void mem_inspect_pool(pool_pt pool, pool_segment_pt *segments, unsigned *num_seg
     
     // loop through the node heap and the segments array
     int currentSegment = 0;
+    
+    /*node_pt currentNode = pool_mgr->node_heap;
+    
+    // Traverse the linked list
+    while(currentNode) {
+        
+        if(currentNode->used != 0) {
+            (*segments)[currentSegment].size = currentNode->alloc_record.size;
+            (*segments)[currentSegment].allocated = currentNode->allocated;
+            ++currentSegment;
+        }
+        
+        currentNode = currentNode->next;
+    }*/
     
     for(int i = 0; i < pool_mgr->used_nodes; ++i) {
         
@@ -1004,69 +1022,8 @@ static alloc_status _mem_add_to_gap_ix(pool_mgr_pt pool_mgr, size_t size, node_p
     
 }
 
-// TESTED - GOOD - DEVIATED
+// DIDN'T USE
 static alloc_status _mem_remove_from_gap_ix(pool_mgr_pt pool_mgr, size_t size, node_pt node) {
-    
-    // Mark node as used
-    node->allocated = 1;
-    
-    // Find a block of memory from the gap table
-    
-    if(pool_mgr->pool.policy == FIRST_FIT) {
-        
-        // Look through the gaps, choose the first one (closest fitting)
-        for(unsigned i = 0; i < pool_mgr->pool.num_gaps; ++i) {
-            
-            // Is this gap large enough?
-            if(pool_mgr->gap_ix[i].size >= size) {
-                
-                // We found one
-                return _convert_gap_to_node_and_gap(pool_mgr, node, &(pool_mgr->gap_ix[i]));
-                
-            }
-            
-        }
-        
-    }
-    
-    if(pool_mgr->pool.policy == BEST_FIT) {
-        
-        // Look through all the gaps, find the best one (closest fitting)
-        gap_pt best = NULL;
-        
-        for(unsigned i = 0; i < pool_mgr->pool.num_gaps; ++i) {
-            
-            // Is this gap large enough?
-            if(pool_mgr->gap_ix[i].size >= size) {
-                
-                // We found one, is it smaller than best?
-                if(best != NULL) {
-                    
-                    if(pool_mgr->gap_ix[i].size < best->size) {
-                        
-                        // This gap is large enough, and smaller than best, it's now the new best
-                        best =  &(pool_mgr->gap_ix[i]);
-                        
-                    }
-                    
-                } else {
-                    
-                    // best is unpopulated, set it to this gap
-                    best = &(pool_mgr->gap_ix[i]);
-                    
-                }
-                
-            }
-            
-        }
-        
-        if(best != NULL) {
-            
-            return _convert_gap_to_node_and_gap(pool_mgr, node, best);
-            
-        }
-        
-    }
     
     // No gap found, the pool is full
     printf("Failed to find available memory in pool.\r\n");
