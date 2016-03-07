@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		C347FE9B1C8CD8B2008D7F4E /* test_suite.c in Sources */ = {isa = PBXBuildFile; fileRef = C347FE991C8CD8B2008D7F4E /* test_suite.c */; };
+		C347FEA01C8CDA32008D7F4E /* libcmocka.0.3.1.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = C347FE9F1C8CDA32008D7F4E /* libcmocka.0.3.1.dylib */; };
 		C37395311C73B78100FAD29B /* main.c in Sources */ = {isa = PBXBuildFile; fileRef = C373952E1C73B78100FAD29B /* main.c */; };
 		C37395321C73B78100FAD29B /* mem_pool.c in Sources */ = {isa = PBXBuildFile; fileRef = C373952F1C73B78100FAD29B /* mem_pool.c */; };
 /* End PBXBuildFile section */
@@ -24,6 +26,10 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		C347FE991C8CD8B2008D7F4E /* test_suite.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = test_suite.c; path = ../../test_suite.c; sourceTree = "<group>"; };
+		C347FE9A1C8CD8B2008D7F4E /* test_suite.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = test_suite.h; path = ../../test_suite.h; sourceTree = "<group>"; };
+		C347FE9C1C8CD8D9008D7F4E /* cmocka.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = cmocka.h; path = ../../cmocka.h; sourceTree = "<group>"; };
+		C347FE9F1C8CDA32008D7F4E /* libcmocka.0.3.1.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libcmocka.0.3.1.dylib; path = ../libcmocka.0.3.1.dylib; sourceTree = "<group>"; };
 		C37395241C73B75E00FAD29B /* OS PA1 */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "OS PA1"; sourceTree = BUILT_PRODUCTS_DIR; };
 		C373952E1C73B78100FAD29B /* main.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = main.c; path = ../../main.c; sourceTree = "<group>"; };
 		C373952F1C73B78100FAD29B /* mem_pool.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = mem_pool.c; path = ../../mem_pool.c; sourceTree = "<group>"; };
@@ -35,6 +41,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C347FEA01C8CDA32008D7F4E /* libcmocka.0.3.1.dylib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -44,6 +51,7 @@
 		C373951B1C73B75E00FAD29B = {
 			isa = PBXGroup;
 			children = (
+				C347FE9F1C8CDA32008D7F4E /* libcmocka.0.3.1.dylib */,
 				C37395261C73B75E00FAD29B /* OS PA1 */,
 				C37395251C73B75E00FAD29B /* Products */,
 			);
@@ -60,7 +68,10 @@
 		C37395261C73B75E00FAD29B /* OS PA1 */ = {
 			isa = PBXGroup;
 			children = (
+				C347FE991C8CD8B2008D7F4E /* test_suite.c */,
+				C347FE9A1C8CD8B2008D7F4E /* test_suite.h */,
 				C373952E1C73B78100FAD29B /* main.c */,
+				C347FE9C1C8CD8D9008D7F4E /* cmocka.h */,
 				C373952F1C73B78100FAD29B /* mem_pool.c */,
 				C37395301C73B78100FAD29B /* mem_pool.h */,
 			);
@@ -123,6 +134,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C347FE9B1C8CD8B2008D7F4E /* test_suite.c in Sources */,
 				C37395311C73B78100FAD29B /* main.c in Sources */,
 				C37395321C73B78100FAD29B /* mem_pool.c in Sources */,
 			);
@@ -213,6 +225,7 @@
 		C373952C1C73B75E00FAD29B /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				"LIBRARY_SEARCH_PATHS[arch=*]" = "/Users/Cody/Desktop/OS1/denver-os-pa-c/";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Debug;
@@ -220,6 +233,7 @@
 		C373952D1C73B75E00FAD29B /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				"LIBRARY_SEARCH_PATHS[arch=*]" = "/Users/Cody/Desktop/OS1/denver-os-pa-c/";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
@@ -243,6 +257,7 @@
 				C373952D1C73B75E00FAD29B /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};

@@ -71,7 +71,7 @@ int main(int argc, char *argv[]) {
     
 }
 
-void print_pool(pool_pt pool) {
+/*void print_pool(pool_pt pool) {
     
     pool_segment_pt segs = NULL;
     
@@ -91,4 +91,4 @@ void print_pool(pool_pt pool) {
     
     printf("\n");
     
-}
+}*/

@@ -8,7 +8,7 @@
 #include <stdarg.h>
 #include <stddef.h>
 #include <setjmp.h>
-#include <cmocka.h>
+#include "cmocka.h"
 
 #include "mem_pool.h"
 #include "test_suite.h"
@@ -29,7 +29,7 @@ static const unsigned POOL_SIZE           = 1000000;
 
 /*****         helper routines         *****/
 
-static void print_pool(pool_pt pool) {
+void print_pool(pool_pt pool) {
     pool_segment_pt segs = NULL;
     unsigned size = 0;
 
