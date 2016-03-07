@@ -10,6 +10,7 @@
 #include <setjmp.h>
 #include "cmocka.h"
 
+#include "cmocka.h"
 #include "mem_pool.h"
 #include "test_suite.h"
 

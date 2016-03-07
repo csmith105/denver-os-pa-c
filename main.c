@@ -1,11 +1,4 @@
-#include <stdio.h>
-#include <assert.h>
-#include <stdlib.h>
-
-#include "mem_pool.h"
-
-/* forward declarations */
-void print_pool(pool_pt pool);
+#include "test_suite.h"
 
 /* main */
 int main(int argc, char *argv[]) {
