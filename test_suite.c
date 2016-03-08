@@ -191,6 +191,7 @@ static void test_pool_smoketest(void **state) {
 }
 
 static void test_pool_nonempty(void **state) {
+    
     (void) state; /* unused */
     
     unsigned pool_size = POOL_SIZE;
@@ -217,10 +218,10 @@ static void test_pool_nonempty(void **state) {
     assert_non_null(alloc->mem);
     assert_in_range(alloc->size, 100, 100);
     
-    INFO("Trying to close pool...");
+    INFO("Trying to close pool...\n");
     status = mem_pool_close(pool);
     assert_int_equal(status, ALLOC_NOT_FREED);
-    INFO(" failed.\n");
+    INFO("failed.\n");
     
     INFO("Deallocating 100 bytes\n");
     status = mem_del_alloc(pool, alloc);
@@ -381,8 +382,8 @@ static void test_pool_bf_metadata(void **state) {
     {
         {pool->total_size, 0},
     };
-    check_metadata(pool, BEST_FIT, POOL_SIZE, 0, 0, 1);
     
+    check_metadata(pool, BEST_FIT, POOL_SIZE, 0, 0, 1);
     
     const unsigned NUM_ALLOCS = 10;
     
@@ -393,6 +394,7 @@ static void test_pool_bf_metadata(void **state) {
         allocs[i] = mem_new_alloc(pool, 100);
         assert_non_null(allocs[i]);
     }
+    
     assert_int_equal(mem_del_alloc(pool, allocs[2]), ALLOC_OK); allocs[2]=0;
     assert_int_equal(mem_del_alloc(pool, allocs[1]), ALLOC_OK); allocs[1]=0;
     assert_int_equal(mem_del_alloc(pool, allocs[3]), ALLOC_OK); allocs[3]=0;
@@ -411,8 +413,8 @@ static void test_pool_bf_metadata(void **state) {
         {100, 1},
         {pool->total_size - 1000, 0},
     };
-    check_metadata(pool, BEST_FIT, POOL_SIZE, 400, 4, 4);
     
+    check_metadata(pool, BEST_FIT, POOL_SIZE, 400, 4, 4);
     
     alloc_pt alloc0 = mem_new_alloc(pool, 50);
     assert_non_null(alloc0);
@@ -447,18 +449,21 @@ static void test_pool_bf_metadata(void **state) {
     };
     check_metadata(pool, BEST_FIT, POOL_SIZE, 500, 6, 3);
     
-    
     // clean up
     for (int i=0; i<NUM_ALLOCS; ++i) {
+        
         if (allocs[i])
             assert_int_equal(mem_del_alloc(pool, allocs[i]), ALLOC_OK);
+        
     }
+    
     free(allocs);
+    
     assert_int_equal(mem_del_alloc(pool, alloc0), ALLOC_OK);
     assert_int_equal(mem_del_alloc(pool, alloc1), ALLOC_OK);
     
-    
     check_metadata(pool, BEST_FIT, POOL_SIZE, 0, 0, 1);
+    
 }
 
 
