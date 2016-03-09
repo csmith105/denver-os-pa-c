@@ -278,7 +278,7 @@ static alloc_status _add_gap(pool_mgr_pt pool_mgr, node_pt node) {
     
 }
 
-static node_pt _add_node(pool_mgr_pt pool_mgr) {
+static node_pt _add_node(pool_mgr_pt pool_mgr, node_pt precedingNode) {
     
     // Do we need to grab more space?
     if(_mem_resize_node_heap(pool_mgr) != ALLOC_OK) {
@@ -303,8 +303,6 @@ static node_pt _add_node(pool_mgr_pt pool_mgr) {
     newNode->alloc_record.mem = NULL;
     newNode->alloc_record.size = 0;
     
-    // We're actually not going to setup the node here, only wire it up
-    
     // Is this the first node to be added to the heap?
     if(pool_mgr->used_nodes == 1) {
         
@@ -315,22 +313,46 @@ static node_pt _add_node(pool_mgr_pt pool_mgr) {
     }
     
     // More than one node exists in the list
-    
-    // Find the last node in the linked list by parsing it to the end
-    node_pt endNode = pool_mgr->node_heap;
-    
-    while(endNode->next != NULL) {
+    if(precedingNode) {
         
-        // Just keep swimming...
-        endNode = endNode->next;
+        // Wire the new node's prev to the end node
+        newNode->prev = precedingNode;
+        
+        // Is there a node after the preceding node?
+        if (precedingNode->next) {
+            
+            // Wire the new node's next to the later node
+            newNode->next = precedingNode->next;
+            
+        } else {
+            
+            // Wire the new node's next to NULL
+            newNode->next = NULL;
+            
+        }
+        
+        // Wire the end node's next to the new node
+        precedingNode->next = newNode;
+        
+    } else {
+        
+        // Find the last node in the linked list by parsing it to the end
+        node_pt endNode = pool_mgr->node_heap;
+        
+        while(endNode->next != NULL) {
+            
+            // Just keep swimming...
+            endNode = endNode->next;
+            
+        }
+        
+        // Wire the end node's next to the new node
+        endNode->next = newNode;
+        
+        // Wire the new node's prev to the end node
+        newNode->prev = endNode;
         
     }
-    
-    // Wire the end node's next to the new node
-    endNode->next = newNode;
-    
-    // Wire the new node's prev to the end node
-    newNode->prev = endNode;
     
     return newNode;
     
@@ -363,12 +385,10 @@ node_pt _convert_gap_to_node_and_gap(pool_mgr_pt pool_mgr, gap_pt gap, size_t si
     // Setup allocatedNode
     allocatedNode->allocated = 1;
     allocatedNode->used = 1;
+    allocatedNode->alloc_record.size = size;
     
     // Generate a new node to represent the gap
-    gap->node = _add_node(pool_mgr);
-    
-    // Set the existing node to the correct memory
-    allocatedNode->alloc_record.size = size;
+    gap->node = _add_node(pool_mgr, allocatedNode);
     
     // Calculate new gap/node size
     gap->size = gap->node->alloc_record.size = gap->size - size;
@@ -379,9 +399,6 @@ node_pt _convert_gap_to_node_and_gap(pool_mgr_pt pool_mgr, gap_pt gap, size_t si
     // Setup gap->node
     gap->node->allocated = 0;
     gap->node->used = 1;
-    
-    //printf("After Node\t%p\r\n", node->alloc_record.mem);
-    //printf("After Gap\t%p\r\n", gap->node->alloc_record.mem);
     
     return allocatedNode;
     
@@ -552,7 +569,7 @@ pool_pt mem_pool_open(size_t size, alloc_policy policy) {
     
     // initialize top node of node heap
     // Add the starting node / gap representing a completely empty pool
-    const node_pt node = _add_node(pool_mgr);
+    const node_pt node = _add_node(pool_mgr, NULL);
     
     // Configure the node
     node->alloc_record.mem = pool_mgr->pool.mem;
@@ -677,19 +694,39 @@ alloc_pt mem_new_alloc(pool_pt pool, size_t size) {
     
     // Find a block of memory from the gap table
     node_pt newNode = NULL;
+    node_pt best = NULL;
+    
     if(pool_mgr->pool.policy == FIRST_FIT) {
         
         // Look through the gaps, choose the first one (closest fitting)
-        for(unsigned i = 0; i < pool_mgr->pool.num_gaps; ++i) {
+        
+        // loop through the node heap and the segments array
+        int currentSegment = 0;
+        
+        node_pt currentNode = pool_mgr->node_heap;
+        
+        // Traverse the linked list
+        while(currentNode) {
             
-            // Is this gap large enough?
-            if(pool_mgr->gap_ix[i].size >= size) {
+            // If node is used and NOT allocated
+            if(currentNode->used == 1 && currentNode->allocated == 0) {
                 
-                // We found one
-                newNode = _convert_gap_to_node_and_gap(pool_mgr, &(pool_mgr->gap_ix[i]), size);
+                // Is this gap large enough?
+                if(currentNode->alloc_record.size >= size) {
+                    
+                    // We found one
+                    best = currentNode;
+                    
+                    break;
+                    
+                }
+                
+                ++currentSegment;
                 
             }
             
+            currentNode = currentNode->next;
+ 
         }
         
     }
@@ -697,37 +734,62 @@ alloc_pt mem_new_alloc(pool_pt pool, size_t size) {
     if(pool_mgr->pool.policy == BEST_FIT) {
         
         // Look through all the gaps, find the best one (closest fitting)
-        gap_pt best = NULL;
+
+        // loop through the node heap and the segments array
+        int currentSegment = 0;
         
-        for(unsigned i = 0; i < pool_mgr->pool.num_gaps; ++i) {
+        node_pt currentNode = pool_mgr->node_heap;
+        
+        // Traverse the linked list
+        while(currentNode) {
             
-            // Is this gap large enough?
-            if(pool_mgr->gap_ix[i].size >= size) {
+            // If node is used and NOT allocated
+            if(currentNode->used == 1 && currentNode->allocated == 0) {
                 
-                // We found one, is it smaller than best?
-                if(best != NULL) {
+                // Is this gap large enough?
+                if(currentNode->alloc_record.size >= size) {
                     
-                    if(pool_mgr->gap_ix[i].size < best->size) {
+                    // We found one, is it smaller than best?
+                    if(best != NULL) {
                         
-                        // This gap is large enough, and smaller than best, it's now the new best
-                        best =  &(pool_mgr->gap_ix[i]);
+                        if(currentNode->alloc_record.size < best->alloc_record.size) {
+                            
+                            // This gap is large enough, and smaller than best, it's now the new best
+                            best = currentNode;
+                            
+                        }
+                        
+                    } else {
+                        
+                        // best is unpopulated, set it to this gap
+                        best = currentNode;
                         
                     }
                     
-                } else {
-                    
-                    // best is unpopulated, set it to this gap
-                    best = &(pool_mgr->gap_ix[i]);
-                    
                 }
+
+                ++currentSegment;
                 
             }
             
+            currentNode = currentNode->next;
+            
         }
         
-        if(best != NULL) {
+    }
+    
+    if(best != NULL) {
+        
+        // Find the corresponding gap
+        for (int i = 0; i < pool_mgr->pool.num_gaps; ++i) {
             
-            newNode = _convert_gap_to_node_and_gap(pool_mgr, best, size);
+            if(pool_mgr->gap_ix[i].node == best) {
+                
+                newNode = _convert_gap_to_node_and_gap(pool_mgr, &(pool_mgr->gap_ix[i]), size);
+                
+                break;
+                
+            }
             
         }
         
@@ -843,7 +905,7 @@ void mem_inspect_pool(pool_pt pool, pool_segment_pt *segments, unsigned *num_seg
     // loop through the node heap and the segments array
     int currentSegment = 0;
     
-    /*node_pt currentNode = pool_mgr->node_heap;
+    node_pt currentNode = pool_mgr->node_heap;
     
     // Traverse the linked list
     while(currentNode) {
@@ -855,9 +917,10 @@ void mem_inspect_pool(pool_pt pool, pool_segment_pt *segments, unsigned *num_seg
         }
         
         currentNode = currentNode->next;
-    }*/
+        
+    }
     
-    for(int i = 0; i < pool_mgr->used_nodes; ++i) {
+    /*for(int i = 0; i < pool_mgr->used_nodes; ++i) {
         
         // Skip unused nodes
         if(pool_mgr->node_heap[i].used == 0) {
@@ -870,7 +933,7 @@ void mem_inspect_pool(pool_pt pool, pool_segment_pt *segments, unsigned *num_seg
         
         ++currentSegment;
         
-    }
+    }*/
     
     // "return" the values:
     *num_segments = currentSegment;

@@ -68,7 +68,7 @@ static void check_pool(pool_pt pool, const pool_segment_pt exp) {
         printf("%10lu - %s\n", (unsigned long) segs[u].size, (segs[u].allocated) ? "alloc" : "gap");
 #endif
     
-    assert_memory_equal(exp, segs, size * sizeof(pool_segment_t));
+    assert_memory_equal(exp, segs, size * sizeof(pool_segment_pt));
     
     if (segs) free(segs);
     
@@ -938,7 +938,9 @@ static void test_pool_scenario05(void **state) {
 }
 
 static void test_pool_scenario06(void **state) {
+    
     alloc_status status;
+    
     pool_pt pool = *state;
     
     /*
@@ -1577,7 +1579,9 @@ static void dummy_test(void **state) {
 }
 
 static void test_pool_scenario11(void **state) {
+    
     alloc_status status;
+    
     pool_pt pool = *state;
     
     /*
@@ -1754,7 +1758,7 @@ static void test_pool_scenario13(void **state) {
         {100, 1},
         {300, 0},
         {100, 1},
-        {pool->total_size - 1000, 0},
+        {pool->total_size - 1100, 0},
     };
     check_pool(pool, exp2);
     
