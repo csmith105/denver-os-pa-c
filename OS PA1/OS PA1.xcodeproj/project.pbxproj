@@ -8,9 +8,9 @@
 
 /* Begin PBXBuildFile section */
 		C347FE9B1C8CD8B2008D7F4E /* test_suite.c in Sources */ = {isa = PBXBuildFile; fileRef = C347FE991C8CD8B2008D7F4E /* test_suite.c */; };
-		C347FEA01C8CDA32008D7F4E /* libcmocka.0.3.1.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = C347FE9F1C8CDA32008D7F4E /* libcmocka.0.3.1.dylib */; };
 		C37395311C73B78100FAD29B /* main.c in Sources */ = {isa = PBXBuildFile; fileRef = C373952E1C73B78100FAD29B /* main.c */; };
 		C37395321C73B78100FAD29B /* mem_pool.c in Sources */ = {isa = PBXBuildFile; fileRef = C373952F1C73B78100FAD29B /* mem_pool.c */; };
+		C3D76B2A1C9714C900DE67A0 /* libcmocka.0.3.1.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = C347FE9F1C8CDA32008D7F4E /* libcmocka.0.3.1.dylib */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -41,7 +41,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				C347FEA01C8CDA32008D7F4E /* libcmocka.0.3.1.dylib in Frameworks */,
+				C3D76B2A1C9714C900DE67A0 /* libcmocka.0.3.1.dylib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -225,7 +225,7 @@
 		C373952C1C73B75E00FAD29B /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				"LIBRARY_SEARCH_PATHS[arch=*]" = "/Users/Cody/Desktop/OS1/denver-os-pa-c/";
+				"LIBRARY_SEARCH_PATHS[arch=*]" = "\"/Users/Cody/Google Drive/OS1/denver-os-pa-c\"";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Debug;
@@ -233,7 +233,7 @@
 		C373952D1C73B75E00FAD29B /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				"LIBRARY_SEARCH_PATHS[arch=*]" = "/Users/Cody/Desktop/OS1/denver-os-pa-c/";
+				"LIBRARY_SEARCH_PATHS[arch=*]" = "\"/Users/Cody/Google Drive/OS1/denver-os-pa-c\"";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
