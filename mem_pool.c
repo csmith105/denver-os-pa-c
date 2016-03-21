@@ -74,7 +74,9 @@ typedef struct _pool_mgr {
 /***************************/
 
 static pool_mgr_pt *pool_store = NULL;
+
 static unsigned pool_store_size = 0;
+
 static unsigned pool_store_capacity = 0;
 
 /********************************************/
@@ -84,10 +86,15 @@ static unsigned pool_store_capacity = 0;
 /********************************************/
 
 static alloc_status _mem_resize_pool_store();
+
 static alloc_status _mem_resize_node_heap(pool_mgr_pt pool_mgr);
+
 static alloc_status _mem_resize_gap_ix(pool_mgr_pt pool_mgr);
+
 static alloc_status _mem_add_to_gap_ix(pool_mgr_pt pool_mgr, size_t size, node_pt node);
+
 static alloc_status _mem_remove_from_gap_ix(pool_mgr_pt pool_mgr, size_t size, node_pt node);
+
 static alloc_status _mem_sort_gap_ix(pool_mgr_pt pool_mgr);
 
 static alloc_status _remove_gap(pool_mgr_pt pool_mgr, gap_pt gap) {
